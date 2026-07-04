@@ -20,7 +20,7 @@
   <!-- ▲▲▲ 設定エリアここまで ▲▲▲ -->
   <!-- ========================================== -->
 
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     body { font-family: sans-serif; text-align: center; padding: 20px; background: #f0f0f0; }
     #idBox { margin-top: 20px; padding: 10px; font-size: 12px; color: #666; word-break: break-all; }
@@ -36,11 +36,10 @@
 </head>
 <body>
   <h2>T-LEAGUE メンバー登録</h2>
-  <p>あなたのお名前を入力して、<br>登録ボタンを押してください。</p>
+  <p>あなたの名前を入力して、<br>登録ボタンを押してください。</p>
   
-  <!-- 名前入力欄 -->
   <div class="input-group">
-    <input type="text" id="nameInput" placeholder="登録する選手名">
+    <input type="text" id="nameInput" placeholder="お名前（例：まろ）">
   </div>
 
   <button id="sendBtn">名簿に登録する</button>
@@ -48,7 +47,6 @@
   <div id="idBox">システムの準備中...</div>
 
   <script>
-    // 設定エリアの変数を読み込んで初期化します
     window.onerror = function(message) {
       document.getElementById('idBox').textContent = "システムエラー: " + message;
     };
@@ -63,10 +61,11 @@
           document.getElementById('idBox').textContent = "取得ID: " + userId;
           
           const sendBtn = document.getElementById('sendBtn');
+          const nameInput = document.getElementById('nameInput');
           sendBtn.style.display = 'inline-block';
           
           sendBtn.addEventListener('click', async () => {
-            const userName = document.getElementById('nameInput').value;
+            const userName = nameInput.value;
             
             if (!userName) {
               alert("お名前を入力してください");
@@ -77,17 +76,36 @@
             sendBtn.disabled = true;
             
             try {
-              await fetch(CONFIG_GAS_URL, {
+              // GASへデータを送信し、結果を待つ
+              const response = await fetch(CONFIG_GAS_URL, {
                 method: "POST",
-                mode: "no-cors",
                 redirect: "follow", 
                 headers: { "Content-Type": "text/plain" }, 
                 body: JSON.stringify({ userId: userId, userName: userName })
               });
               
-              sendBtn.textContent = "登録が完了しました";
-              sendBtn.style.background = "#999";
-              alert("登録が完了しました！この画面を閉じてください。");
+              // GASからの返事（JSON）を読み取る
+              const resultData = await response.json();
+              
+              // 結果に応じて処理を分ける
+              if (resultData.result === "error_id") {
+                alert("あなたは既に登録されています");
+                nameInput.value = ""; // 入力欄をクリア
+                sendBtn.textContent = "名簿に登録する";
+                sendBtn.disabled = false;
+              } else if (resultData.result === "error_name") {
+                alert("その選手名は既に登録されています");
+                nameInput.value = ""; // 入力欄をクリア
+                sendBtn.textContent = "名簿に登録する";
+                sendBtn.disabled = false;
+              } else if (resultData.result === "success") {
+                sendBtn.textContent = "登録が完了しました";
+                sendBtn.style.background = "#999";
+                alert("登録が完了しました！この画面を閉じてください。");
+              } else {
+                throw new Error("システムエラー");
+              }
+              
             } catch (error) {
               alert("通信に失敗しました");
               sendBtn.textContent = "もう一度登録する";
