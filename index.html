@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LINE ID確認</title>
+  <!-- LIFFの機能を読み込む -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 20px; background: #f0f0f0; }
+    #idBox { margin-top: 20px; padding: 15px; background: white; border-radius: 10px; font-weight: bold; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h2>あなたのLINE ID</h2>
+  <p>この文字列をコピーして、LINEに送信してください。</p>
+  
+  <div id="idBox">IDを取得中...</div>
+
+  <script>
+    // ▼ ここにあなたの「LIFF ID」を入力します
+    const myLiffId = "2010600263-dAcCU7j1"; 
+
+    // LIFFの初期化とIDの取得
+    async function initializeLiff() {
+      try {
+        await liff.init({ liffId: myLiffId });
+        
+        if (liff.isLoggedIn()) {
+          const profile = await liff.getProfile();
+          document.getElementById('idBox').textContent = profile.userId;
+        } else {
+          // スマホの外部ブラウザで開いた時などはログインを促す
+          liff.login();
+        }
+      } catch (err) {
+        document.getElementById('idBox').textContent = "エラー: " + err.message;
+      }
+    }
+    
+    initializeLiff();
+  </script>
+</body>
+</html>
