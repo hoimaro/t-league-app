@@ -4,66 +4,93 @@
   <base target="_top">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LINE ID確認</title>
+  <title>T-LEAGUE メンバー登録</title>
+
+  <!-- ========================================== -->
+  <!-- ▼▼▼ 変更・メンテナンス設定エリア ▼▼▼ -->
+  <!-- ========================================== -->
+  <script>
+    // 1. LIFF IDを設定してください
+    const CONFIG_LIFF_ID = "2010600263-dAcCU7j1"; 
+    
+    // 2. GASのウェブアプリURLを設定してください（新しいデプロイのたびに書き換えます）
+    const CONFIG_GAS_URL = "https://script.google.com/macros/s/AKfycbxApVeyJSrYaWtUDyttPUbUdvMgs3OknGQ5ZuLz9AhdJxrxa3S3KQsgQK1VUJ6z6kI/exec"; 
+  </script>
+  <!-- ========================================== -->
+  <!-- ▲▲▲ 設定エリアここまで ▲▲▲ -->
+  <!-- ========================================== -->
+
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     body { font-family: sans-serif; text-align: center; padding: 20px; background: #f0f0f0; }
-    #idBox { margin-top: 20px; padding: 15px; background: white; border-radius: 10px; font-weight: bold; word-break: break-all; }
+    #idBox { margin-top: 20px; padding: 10px; font-size: 12px; color: #666; word-break: break-all; }
+    .input-group { margin-top: 30px; margin-bottom: 20px; }
+    input[type="text"] { padding: 12px; font-size: 16px; width: 80%; max-width: 300px; border: 1px solid #ccc; border-radius: 5px; }
     #sendBtn {
-      display: none; margin-top: 30px; padding: 15px 30px; 
+      display: none; padding: 15px 30px; 
       background: #06C755; color: white; border-radius: 30px; 
       border: none; font-weight: bold; font-size: 16px; cursor: pointer;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 80%; max-width: 300px;
     }
   </style>
 </head>
 <body>
-  <h2>あなたのLINE ID</h2>
-  <p>以下のボタンを押してシステムに登録してください。</p>
+  <h2>T-LEAGUE メンバー登録</h2>
+  <p>あなたのお名前を入力して、<br>登録ボタンを押してください。</p>
   
-  <div id="idBox">IDを取得中...</div>
+  <!-- 名前入力欄 -->
+  <div class="input-group">
+    <input type="text" id="nameInput" placeholder="お名前（例：まろ）">
+  </div>
+
+  <button id="sendBtn">名簿に登録する</button>
   
-  <button id="sendBtn">指定のトークに送信する</button>
+  <div id="idBox">システムの準備中...</div>
 
   <script>
-    const myLiffId = "2010600263-dAcCU7j1"; 
-    const gasUrl = "https://script.google.com/macros/s/AKfycbxApVeyJSrYaWtUDyttPUbUdvMgs3OknGQ5ZuLz9AhdJxrxa3S3KQsgQK1VUJ6z6kI/exec";
-
+    // 設定エリアの変数を読み込んで初期化します
     window.onerror = function(message) {
       document.getElementById('idBox').textContent = "システムエラー: " + message;
     };
 
     async function initializeLiff() {
       try {
-        await liff.init({ liffId: myLiffId });
+        await liff.init({ liffId: CONFIG_LIFF_ID });
         
         if (liff.isLoggedIn()) {
           const profile = await liff.getProfile();
           const userId = profile.userId;
-          document.getElementById('idBox').textContent = userId;
+          document.getElementById('idBox').textContent = "取得ID: " + userId;
           
           const sendBtn = document.getElementById('sendBtn');
           sendBtn.style.display = 'inline-block';
           
-          // 送信ボタンが押された時の処理
           sendBtn.addEventListener('click', async () => {
-            sendBtn.textContent = "送信中...";
+            const userName = document.getElementById('nameInput').value;
+            
+            if (!userName) {
+              alert("お名前を入力してください");
+              return;
+            }
+
+            sendBtn.textContent = "登録処理中...";
             sendBtn.disabled = true;
             
             try {
-              // GASへデータを送信
-              await fetch(gasUrl, {
+              await fetch(CONFIG_GAS_URL, {
                 method: "POST",
-                redirect: "follow", // GAS特有の転送に対応するための必須設定
-                headers: { "Content-Type": "text/plain" }, // CORS回避用
-                body: JSON.stringify({ userId: userId })
+                mode: "no-cors",
+                redirect: "follow", 
+                headers: { "Content-Type": "text/plain" }, 
+                body: JSON.stringify({ userId: userId, userName: userName })
               });
               
-              sendBtn.textContent = "送信完了";
+              sendBtn.textContent = "登録が完了しました";
               sendBtn.style.background = "#999";
+              alert("登録が完了しました！この画面を閉じてください。");
             } catch (error) {
-              alert("送信に失敗しました");
-              sendBtn.textContent = "もう一度送信する";
+              alert("通信に失敗しました");
+              sendBtn.textContent = "もう一度登録する";
               sendBtn.disabled = false;
             }
           });
