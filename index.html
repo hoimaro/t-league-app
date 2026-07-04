@@ -32,6 +32,13 @@
       border: none; font-weight: bold; font-size: 16px; cursor: pointer;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 80%; max-width: 300px;
     }
+    /* 追加：画面上に表示するメッセージ用のデザイン */
+    #resultMessage {
+      margin-top: 20px;
+      font-weight: bold;
+      font-size: 16px;
+      min-height: 24px;
+    }
   </style>
 </head>
 <body>
@@ -43,6 +50,9 @@
   </div>
 
   <button id="sendBtn">名簿に登録する</button>
+  
+  <!-- 追加：ここにエラーや成功のメッセージが表示されます -->
+  <div id="resultMessage"></div>
   
   <div id="idBox">システムの準備中...</div>
 
@@ -62,13 +72,19 @@
           
           const sendBtn = document.getElementById('sendBtn');
           const nameInput = document.getElementById('nameInput');
+          const resultMsg = document.getElementById('resultMessage'); // メッセージ表示エリアを取得
+          
           sendBtn.style.display = 'inline-block';
           
           sendBtn.addEventListener('click', async () => {
             const userName = nameInput.value;
             
+            // 毎回メッセージをリセットする
+            resultMsg.textContent = ""; 
+            
             if (!userName) {
-              alert("選手名を入力してください");
+              resultMsg.style.color = "red";
+              resultMsg.textContent = "※選手名を入力してください";
               return;
             }
 
@@ -76,36 +92,44 @@
             sendBtn.disabled = true;
             
             try {
-              // データをURLの後ろにくっつけてGET方式で送信する
               const targetUrl = CONFIG_GAS_URL + "?userId=" + encodeURIComponent(userId) + "&userName=" + encodeURIComponent(userName);
               const response = await fetch(targetUrl, {
                 method: "GET"
               });
               
-              // GASからの返事（JSON）を読み取る
               const resultData = await response.json();
               
-              // 結果に応じて処理を分ける
+              // アラートの代わりに、画面上の文字を書き換える
               if (resultData.result === "error_id") {
-                alert("あなたは既に登録されています");
+                resultMsg.style.color = "red";
+                resultMsg.textContent = "※あなたは既に登録されています";
                 nameInput.value = ""; 
                 sendBtn.textContent = "名簿に登録する";
                 sendBtn.disabled = false;
               } else if (resultData.result === "error_name") {
-                alert("その選手名は既に登録されています");
+                resultMsg.style.color = "red";
+                resultMsg.textContent = "※その選手名は既に登録されています";
                 nameInput.value = ""; 
                 sendBtn.textContent = "名簿に登録する";
                 sendBtn.disabled = false;
               } else if (resultData.result === "success") {
-                sendBtn.textContent = "登録が完了しました";
+                resultMsg.style.color = "#06C755";
+                resultMsg.textContent = "登録が完了しました！画面を閉じます。";
+                sendBtn.textContent = "登録完了";
                 sendBtn.style.background = "#999";
-                alert("登録が完了しました！この画面を閉じてください。");
+                
+                // 1.5秒後に自動でLINEの画面を閉じる
+                setTimeout(() => {
+                  liff.closeWindow();
+                }, 1500);
+
               } else {
                 throw new Error("システムエラー");
               }
               
             } catch (error) {
-              alert("通信に失敗しました");
+              resultMsg.style.color = "red";
+              resultMsg.textContent = "※通信に失敗しました";
               sendBtn.textContent = "もう一度登録する";
               sendBtn.disabled = false;
             }
