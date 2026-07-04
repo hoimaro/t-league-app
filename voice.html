@@ -3,49 +3,106 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>音声入力テスト</title>
+  <title>音声入力テスト（辞書作成支援ツール）</title>
+  
+  <script>
+    // GASのウェブアプリURLを設定してください
+    const CONFIG_GAS_URL = "https://script.google.com/macros/s/AKfycbxApVeyJSrYaWtUDyttPUbUdvMgs3OknGQ5ZuLz9AhdJxrxa3S3KQsgQK1VUJ6z6kI/exec"; 
+  </script>
+
   <style>
     body { font-family: sans-serif; text-align: center; padding: 20px; background: #f0f0f0; }
     #startBtn { 
-      padding: 15px 30px; background: #007bff; color: white; border: none; 
-      border-radius: 30px; font-size: 18px; margin-bottom: 10px; cursor: pointer;
+      padding: 15px 30px; background: #ccc; color: white; border: none; 
+      border-radius: 30px; font-size: 18px; margin-bottom: 10px; cursor: not-allowed;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 80%; max-width: 300px;
     }
     #status { color: #666; margin-bottom: 20px; font-size: 14px; font-weight: bold; }
-    #result { 
-      width: 90%; max-width: 300px; height: 150px; padding: 15px; 
-      border: 1px solid #ccc; border-radius: 10px; font-size: 18px; 
+    
+    .box-title { font-size: 14px; font-weight: bold; margin-top: 20px; margin-bottom: 5px; color: #333; }
+    
+    /* 辞書登録用の生の音声エリア（グレー） */
+    #rawResult { 
+      width: 90%; max-width: 300px; height: 80px; padding: 15px; 
+      border: 1px solid #aaa; border-radius: 10px; font-size: 16px; 
       text-align: left; resize: none; margin: 0 auto; display: block;
+      background: #e9ecef; color: #555;
+    }
+    
+    /* 変換後の結果エリア（白） */
+    #result { 
+      width: 90%; max-width: 300px; height: 80px; padding: 15px; 
+      border: 2px solid #007bff; border-radius: 10px; font-size: 18px; 
+      text-align: left; resize: none; margin: 0 auto; display: block;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <h2>音声認識テスト</h2>
-  <p>ボタンを押してマイクを許可し、<br>麻雀の点数などを話してみてください。</p>
+  <h2>音声入力テスト<br>（辞書作成ツール）</h2>
   
-  <button id="startBtn">🎤 音声入力を開始</button>
-  <div id="status">待機中...</div>
+  <button id="startBtn" disabled>システムの準備中...</button>
+  <div id="status">辞書データをダウンロードしています...</div>
   
-  <textarea id="result" placeholder="ここに認識された言葉が入ります..."></textarea>
+  <div class="box-title">▼ 認識された元の言葉（スプレッドシートのA列用）</div>
+  <textarea id="rawResult" readonly placeholder="聞き取ったままの文字が出ます"></textarea>
+
+  <div class="box-title">▼ 辞書フィルター通過後（スプレッドシートのB列用）</div>
+  <textarea id="result" placeholder="変換された結果が出ます"></textarea>
 
   <script>
     const startBtn = document.getElementById('startBtn');
+    const rawResultText = document.getElementById('rawResult');
     const resultText = document.getElementById('result');
     const statusText = document.getElementById('status');
 
-    // ブラウザが音声認識に対応しているかチェック
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    if (!SpeechRecognition) {
-      statusText.textContent = "エラー：このブラウザは音声入力に未対応です。";
-      statusText.style.color = "red";
-      startBtn.disabled = true;
-      startBtn.style.background = "#ccc";
-    } else {
+    let dynamicDictionary = {};
+    let sortedKeys = [];
+
+    function applyDictionary(text) {
+      let convertedText = text;
+      for (const key of sortedKeys) {
+        const regex = new RegExp(key, "g");
+        convertedText = convertedText.replace(regex, dynamicDictionary[key]);
+      }
+      return convertedText;
+    }
+
+    async function loadDictionary() {
+      try {
+        const targetUrl = CONFIG_GAS_URL + "?action=getDictionary";
+        const response = await fetch(targetUrl, { method: "GET" });
+        const resultData = await response.json();
+
+        if (resultData.result === "success") {
+          dynamicDictionary = resultData.dictionary;
+          sortedKeys = Object.keys(dynamicDictionary).sort((a, b) => b.length - a.length);
+          
+          startBtn.disabled = false;
+          startBtn.textContent = "🎤 音声入力を開始";
+          startBtn.style.background = "#007bff";
+          startBtn.style.cursor = "pointer";
+          statusText.textContent = "待機中... (辞書ロード完了)";
+          
+          initializeSpeechRecognition();
+        } else {
+          statusText.textContent = "辞書の読み込みに失敗しました。";
+          statusText.style.color = "red";
+        }
+      } catch (error) {
+        statusText.textContent = "通信エラー: 辞書が取得できません。";
+        statusText.style.color = "red";
+      }
+    }
+
+    function initializeSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+
       const recognition = new SpeechRecognition();
-      recognition.lang = 'ja-JP'; // 日本語
-      recognition.interimResults = true; // 喋っている途中の文字も表示する
-      recognition.continuous = false; // 一言喋り終わったら自動で停止する
+      recognition.lang = 'ja-JP';
+      recognition.interimResults = true; 
+      recognition.continuous = false; 
 
       let isRecognizing = false;
 
@@ -54,16 +111,21 @@
         statusText.textContent = "録音中... 話してください";
         statusText.style.color = "red";
         startBtn.textContent = "⏹ 録音を停止";
-        startBtn.style.background = "#dc3545"; // 赤色に変更
+        startBtn.style.background = "#dc3545";
       };
 
-      // 音声が文字に変換されたときの処理
       recognition.onresult = (event) => {
         let transcript = '';
         for (let i = 0; i < event.results.length; i++) {
           transcript += event.results[i][0].transcript;
         }
-        resultText.value = transcript;
+        
+        // 上の枠（グレー）に元の認識結果を表示
+        rawResultText.value = transcript;
+
+        // 下の枠（白）に変換後の結果を表示
+        const finalText = applyDictionary(transcript);
+        resultText.value = finalText;
       };
 
       recognition.onend = () => {
@@ -71,24 +133,23 @@
         statusText.textContent = "待機中...";
         statusText.style.color = "#666";
         startBtn.textContent = "🎤 音声入力を開始";
-        startBtn.style.background = "#007bff"; // 青色に戻す
+        startBtn.style.background = "#007bff";
       };
 
-      recognition.onerror = (event) => {
-        statusText.textContent = "エラーが発生しました: " + event.error;
-        statusText.style.color = "red";
-      };
-
-      // ボタンを押したときの動作
       startBtn.addEventListener('click', () => {
         if (isRecognizing) {
           recognition.stop();
         } else {
-          resultText.value = ""; // テキストエリアを空にする
-          recognition.start(); // 録音開始
+          rawResultText.value = ""; 
+          resultText.value = ""; 
+          recognition.start(); 
         }
       });
     }
+
+    window.onload = () => {
+      loadDictionary();
+    };
   </script>
 </body>
 </html>
