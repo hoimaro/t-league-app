@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>音声入力テスト</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 20px; background: #f0f0f0; }
+    #startBtn { 
+      padding: 15px 30px; background: #007bff; color: white; border: none; 
+      border-radius: 30px; font-size: 18px; margin-bottom: 10px; cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 80%; max-width: 300px;
+    }
+    #status { color: #666; margin-bottom: 20px; font-size: 14px; font-weight: bold; }
+    #result { 
+      width: 90%; max-width: 300px; height: 150px; padding: 15px; 
+      border: 1px solid #ccc; border-radius: 10px; font-size: 18px; 
+      text-align: left; resize: none; margin: 0 auto; display: block;
+    }
+  </style>
+</head>
+<body>
+  <h2>音声認識テスト</h2>
+  <p>ボタンを押してマイクを許可し、<br>麻雀の点数などを話してみてください。</p>
+  
+  <button id="startBtn">🎤 音声入力を開始</button>
+  <div id="status">待機中...</div>
+  
+  <textarea id="result" placeholder="ここに認識された言葉が入ります..."></textarea>
+
+  <script>
+    const startBtn = document.getElementById('startBtn');
+    const resultText = document.getElementById('result');
+    const statusText = document.getElementById('status');
+
+    // ブラウザが音声認識に対応しているかチェック
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      statusText.textContent = "エラー：このブラウザは音声入力に未対応です。";
+      statusText.style.color = "red";
+      startBtn.disabled = true;
+      startBtn.style.background = "#ccc";
+    } else {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ja-JP'; // 日本語
+      recognition.interimResults = true; // 喋っている途中の文字も表示する
+      recognition.continuous = false; // 一言喋り終わったら自動で停止する
+
+      let isRecognizing = false;
+
+      recognition.onstart = () => {
+        isRecognizing = true;
+        statusText.textContent = "録音中... 話してください";
+        statusText.style.color = "red";
+        startBtn.textContent = "⏹ 録音を停止";
+        startBtn.style.background = "#dc3545"; // 赤色に変更
+      };
+
+      // 音声が文字に変換されたときの処理
+      recognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        resultText.value = transcript;
+      };
+
+      recognition.onend = () => {
+        isRecognizing = false;
+        statusText.textContent = "待機中...";
+        statusText.style.color = "#666";
+        startBtn.textContent = "🎤 音声入力を開始";
+        startBtn.style.background = "#007bff"; // 青色に戻す
+      };
+
+      recognition.onerror = (event) => {
+        statusText.textContent = "エラーが発生しました: " + event.error;
+        statusText.style.color = "red";
+      };
+
+      // ボタンを押したときの動作
+      startBtn.addEventListener('click', () => {
+        if (isRecognizing) {
+          recognition.stop();
+        } else {
+          resultText.value = ""; // テキストエリアを空にする
+          recognition.start(); // 録音開始
+        }
+      });
+    }
+  </script>
+</body>
+</html>
