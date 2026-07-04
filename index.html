@@ -76,12 +76,10 @@
             sendBtn.disabled = true;
             
             try {
-              // GASへデータを送信し、結果を待つ
-              const response = await fetch(CONFIG_GAS_URL, {
-                method: "POST",
-                redirect: "follow", 
-                headers: { "Content-Type": "text/plain" }, 
-                body: JSON.stringify({ userId: userId, userName: userName })
+              // データをURLの後ろにくっつけてGET方式で送信する
+              const targetUrl = CONFIG_GAS_URL + "?userId=" + encodeURIComponent(userId) + "&userName=" + encodeURIComponent(userName);
+              const response = await fetch(targetUrl, {
+                method: "GET"
               });
               
               // GASからの返事（JSON）を読み取る
@@ -90,12 +88,12 @@
               // 結果に応じて処理を分ける
               if (resultData.result === "error_id") {
                 alert("あなたは既に登録されています");
-                nameInput.value = ""; // 入力欄をクリア
+                nameInput.value = ""; 
                 sendBtn.textContent = "名簿に登録する";
                 sendBtn.disabled = false;
               } else if (resultData.result === "error_name") {
                 alert("その選手名は既に登録されています");
-                nameInput.value = ""; // 入力欄をクリア
+                nameInput.value = ""; 
                 sendBtn.textContent = "名簿に登録する";
                 sendBtn.disabled = false;
               } else if (resultData.result === "success") {
@@ -111,8 +109,6 @@
               sendBtn.textContent = "もう一度登録する";
               sendBtn.disabled = false;
             }
-          });
-
         } else {
           document.getElementById('idBox').textContent = "エラー：LINEアプリ内で開いてください";
         }
