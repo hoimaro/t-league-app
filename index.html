@@ -68,7 +68,7 @@
             const userName = nameInput.value;
             
             if (!userName) {
-              alert("お名前を入力してください");
+              alert("選手名を入力してください");
               return;
             }
 
@@ -109,6 +109,8 @@
               sendBtn.textContent = "もう一度登録する";
               sendBtn.disabled = false;
             }
+          });
+
         } else {
           document.getElementById('idBox').textContent = "エラー：LINEアプリ内で開いてください";
         }
@@ -121,4 +123,3 @@
   </script>
 </body>
 </html>
-
