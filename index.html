@@ -12,23 +12,22 @@
     #sendBtn {
       display: none; margin-top: 30px; padding: 15px 30px; 
       background: #06C755; color: white; border-radius: 30px; 
-      text-decoration: none; font-weight: bold; font-size: 16px;
+      border: none; font-weight: bold; font-size: 16px; cursor: pointer;
       box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
   </style>
 </head>
 <body>
   <h2>あなたのLINE ID</h2>
-  <p>以下のボタンから送信してください。</p>
+  <p>以下のボタンを押してシステムに登録してください。</p>
   
   <div id="idBox">IDを取得中...</div>
   
-  <!-- 送信ボタン（初期状態では非表示） -->
-  <a id="sendBtn" href="#">LINEで送る</a>
+  <button id="sendBtn">指定のトークに送信する</button>
 
   <script>
-    // ▼ ここに「LIFF ID」の英数字部分だけを入力します
     const myLiffId = "2010600263-dAcCU7j1"; 
+    const gasUrl = "https://script.google.com/macros/s/AKfycbxApVeyJSrYaWtUDyttPUbUdvMgs3OknGQ5ZuLz9AhdJxrxa3S3KQsgQK1VUJ6z6kI/exec";
 
     window.onerror = function(message) {
       document.getElementById('idBox').textContent = "システムエラー: " + message;
@@ -43,10 +42,32 @@
           const userId = profile.userId;
           document.getElementById('idBox').textContent = userId;
           
-          // ID取得に成功したらボタンを表示し、送信URLをセットする
           const sendBtn = document.getElementById('sendBtn');
-          sendBtn.href = `https://line.me/R/msg/text/?私のLINE IDはこれです！%0A${userId}`;
           sendBtn.style.display = 'inline-block';
+          
+          // 送信ボタンが押された時の処理
+          sendBtn.addEventListener('click', async () => {
+            sendBtn.textContent = "送信中...";
+            sendBtn.disabled = true;
+            
+            try {
+              // GASへデータを送信
+              await fetch(gasUrl, {
+                method: "POST",
+                redirect: "follow", // GAS特有の転送に対応するための必須設定
+                headers: { "Content-Type": "text/plain" }, // CORS回避用
+                body: JSON.stringify({ userId: userId })
+              });
+              
+              sendBtn.textContent = "送信完了";
+              sendBtn.style.background = "#999";
+            } catch (error) {
+              alert("送信に失敗しました");
+              sendBtn.textContent = "もう一度送信する";
+              sendBtn.disabled = false;
+            }
+          });
+
         } else {
           document.getElementById('idBox').textContent = "エラー：LINEアプリ内で開いてください";
         }
