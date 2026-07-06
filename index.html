@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>T-LEAGUE 対局管理</title>
+  <style>
+    /* 全体・麻雀卓のレイアウト */
+    body { font-family: sans-serif; background: #f0f2f5; text-align: center; color: #333; margin: 0; padding: 20px; }
+    .table-container { 
+      position: relative; width: 340px; height: 340px; margin: 20px auto; 
+      background: #2e7d32; border-radius: 15px; border: 6px solid #5d4037; 
+      box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+    }
+    
+    /* 座席UI */
+    .seat { 
+      position: absolute; width: 90px; height: 46px; background: #1a1a1a; color: #fff;
+      border-radius: 6px; display: flex; flex-direction: column; justify-content: center; 
+      font-size: 12px; cursor: pointer; border: 2px solid #1a1a1a;
+    }
+    .seat.active-oya { border: 2px solid #ff5252; color: #ff5252; font-weight: bold; } /* 親マークの代わり */
+    .seat-top { top: 10px; left: 125px; }
+    .seat-bottom { bottom: 10px; left: 125px; }
+    .seat-left { top: 147px; left: 10px; }
+    .seat-right { top: 147px; right: 10px; }
+
+    /* 中央情報エリア */
+    .center-info { 
+      position: absolute; top: 110px; left: 110px; width: 120px; height: 120px; 
+      background: #e0e0e0; border-radius: 10px; display: flex; flex-direction: column; 
+      justify-content: center; font-size: 14px; font-weight: bold; color: #000;
+    }
+    .center-info div { margin: 2px 0; }
+
+    /* コントロール・ログエリア */
+    .controls { margin-top: 20px; }
+    button { padding: 12px 24px; font-size: 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
+    #micBtn { background: #007bff; color: white; width: 200px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    #micBtn:disabled { background: #999; cursor: not-allowed; }
+    
+    #logArea { 
+      margin: 20px auto; width: 90%; max-width: 340px; height: 120px; 
+      background: #fff; color: #333; text-align: left; padding: 12px; 
+      border-radius: 8px; border: 1px solid #ccc; overflow-y: auto; font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h2>T-LEAGUE 対局管理</h2>
+  
+  <!-- 麻雀卓UI -->
+  <div class="table-container">
+    <div class="seat seat-top" id="seat-2">対面<br>25000</div>
+    <div class="seat seat-left" id="seat-3">上家<br>25000</div>
+    <div class="seat seat-right" id="seat-1">下家<br>25000</div>
+    <div class="seat seat-bottom active-oya" id="seat-0">自分<br>25000</div>
+    
+    <div class="center-info">
+      <div id="kyokuInfo">東1局</div>
+      <div id="honbaInfo">0本場</div>
+      <div id="kyotakuInfo">供託: 0</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="micBtn" disabled>システムの準備中...</button>
+  </div>
+
+  <div class="box-title">【デバッグ・認識結果ログ】</div>
+  <div id="logArea">辞書データをダウンロードしています...<br></div>
+
+  <script>
+    // 先ほどデプロイした新しいGASのWebアプリURLに書き換えてください
+    const CONFIG_GAS_URL = "https://script.google.com/macros/s/AKfycbxApVeyJSrYaWtUDyttPUbUdvMgs3OknGQ5ZuLz9AhdJxrxa3S3KQsgQK1VUJ6z6kI/exec"; 
+    
+    let dictionary = {};
+
+    // 1. 辞書データの読み込み
+    async function loadDictionary() {
+      try {
+        const response = await fetch(CONFIG_GAS_URL + "?action=getDictionary");
+        const resultData = await response.json();
+
+        if (resultData.result === "success") {
+          dictionary = resultData.dictionary;
+          const micBtn = document.getElementById('micBtn');
+          micBtn.disabled = false;
+          micBtn.textContent = "🎤 アガリ役を音声入力";
+          log("辞書の読み込みが完了しました。");
+          initSpeechRecognition();
+        }
+      } catch (error) {
+        log("通信エラー: 辞書が取得できません。URLを確認してください。");
+      }
+    }
+
+    // 2. 音声認識の初期化
+    function initSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ja-JP';
+      recognition.continuous = false; 
+
+      const micBtn = document.getElementById('micBtn');
+
+      recognition.onstart = () => {
+        micBtn.textContent = "⏹ 録音中...";
+        micBtn.style.background = "#dc3545"; // 赤色に変更
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        processSpeech(transcript);
+      };
+
+      recognition.onend = () => {
+        micBtn.textContent = "🎤 アガリ役を音声入力";
+        micBtn.style.background = "#007bff";
+      };
+
+      micBtn.addEventListener('click', () => {
+        recognition.start(); 
+      });
+    }
+
+    // 3. テキストの配列化・完全一致変換・鳴きあり処理
+    function processSpeech(text) {
+      log(`[音声認識]: ${text}`);
+
+      // カンマ、読点、スペースなどで区切って配列化
+      let rawArray = text.split(/[、，,\s]+/);
+      rawArray = rawArray.filter(word => word.trim().length > 0);
+
+      let yakuArray = [];
+      let isKuiseagari = false; // 鳴きありフラグ
+
+      // 配列の要素ごとに完全一致で辞書変換
+      for (let word of rawArray) {
+        // 「鳴きあり」コマンドの抽出と除外
+        if (word === "鳴きあり" || word === "なきあり") {
+          isKuiseagari = true;
+          continue; // 役配列には追加しない
+        }
+
+        // 辞書に存在すれば正式名称に、無ければそのまま追加
+        let officialYaku = dictionary[word] || word;
+        yakuArray.push(officialYaku);
+      }
+
+      log(`[抽出役リスト]: ${yakuArray.join(", ")}`);
+      log(`[鳴きあり判定]: ${isKuiseagari ? "適用 (1翻マイナス)" : "なし"}`);
+      
+      // TODO: ここから先で合計翻数の計算とポップアップの判定（フェーズ3・4）に進みます
+    }
+
+    // ログ出力用補助関数
+    function log(message) {
+      const logArea = document.getElementById('logArea');
+      logArea.innerHTML += message + "<br>";
+      logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    window.onload = () => {
+      // GASのURLを設定した後に、以下のコメントアウトを外して実行してください
+      // loadDictionary();
+    };
+  </script>
+</body>
+</html>
