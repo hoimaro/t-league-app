@@ -70,11 +70,23 @@
   <div class="box-title">【デバッグ・認識結果ログ】</div>
   <div id="logArea">辞書データをダウンロードしています...<br></div>
 
-  <script>
+<script>
     // 先ほどデプロイした新しいGASのWebアプリURLに書き換えてください
     const CONFIG_GAS_URL = "https://script.google.com/macros/s/AKfycbxApVeyJSrYaWtUDyttPUbUdvMgs3OknGQ5ZuLz9AhdJxrxa3S3KQsgQK1VUJ6z6kI/exec"; 
     
     let dictionary = {};
+
+    // ＝＝＝ 今回追加した設定（1の部分） ＝＝＝
+    // 役名から基本翻数を引くためのマスタ定義（抜粋）
+    const YAKU_HAN = {
+      "立直": 1, "平和": 1, "断幺九": 1, "門前清自摸和": 1, "役牌": 1, "ドラ": 1,
+      "三色同順": 2, "一気通貫": 2, "混全帯幺九": 2, "七対子": 2, "対々和": 2, "三暗刻": 2,
+      "混一色": 3, "純全帯幺九": 3, "二盃口": 3,
+      "清一色": 6
+    };
+    // 喰い下がり（鳴きあり）対象の役リスト
+    const KUISEAGARI_YAKU = ["混一色", "純全帯幺九", "三色同順", "一気通貫", "混全帯幺九"];
+    // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
 
     // 1. 辞書データの読み込み
     async function loadDictionary() {
@@ -126,14 +138,15 @@
       });
     }
 
-    // 3. テキストからの役抽出・変換・鳴きあり処理（改修版）
+    // 3. テキストからの役抽出・変換・鳴きあり処理
     function processSpeech(text) {
-    // 最初に半角スペース・全角スペースをすべて削除して詰める
+      // 最初に半角スペース・全角スペースをすべて削除して詰める
       let normalizedText = text.replace(/[\s ]+/g, "");
       log(`[音声認識(補正後)]: ${normalizedText}`);
+
       let yakuArray = [];
       let isKuiseagari = false;
-      let remainingText = normalizedText; // 以降はスペース除去済みのテキストを使用
+      let remainingText = normalizedText;
 
       // ① 「鳴きあり」コマンドの検知と文字列からの除外
       if (remainingText.includes("鳴きあり") || remainingText.includes("なきあり")) {
@@ -142,37 +155,108 @@
       }
 
       // ② 辞書のキー（よみ）を文字数が「長い順」にソート
-      // ※「メンタンピン」を「ピン」や「タン」より先にヒットさせるための重要処理
       const sortedKeys = Object.keys(dictionary).sort((a, b) => b.length - a.length);
 
       // ③ 繋がった文字列の中から、辞書に一致する言葉を探し出す
       for (const key of sortedKeys) {
         if (remainingText.includes(key)) {
-          // 辞書から正式名称を取得（例: "リーチ,断幺九,平和"）
           let officialName = dictionary[key];
-          
-          // 正式名称にカンマが含まれている場合（メンタンピン等）は分割して配列に追加
           let splitYaku = officialName.split(/[、，,\s]+/);
           yakuArray.push(...splitYaku);
-
-          // 抽出済みの部分は文字列から削除し、二重カウントを防ぐ
           remainingText = remainingText.replace(new RegExp(key, 'g'), "");
         }
       }
 
-      // ④ 辞書変換されずに残った未知の文字列がある場合の処理（誤認識リカバリー用）
-      // 残った文字列から不要な記号を取り除く
+      // ④ 辞書変換されずに残った未知の文字列がある場合の処理
       let unknownParts = remainingText.replace(/[、，,\s]+/g, "").trim();
       if (unknownParts.length > 0) {
         log(`<span style="color:red;">【警告】未登録の言葉が含まれています: 「${unknownParts}」</span>`);
-        // ※ここでフェーズ4の「辞書追加プルダウンUI」を呼び出します
       }
 
       log(`[抽出役リスト]: ${yakuArray.join(", ")}`);
       log(`[鳴きあり判定]: ${isKuiseagari ? "適用 (1翻マイナス)" : "なし"}`);
       
-      // TODO: 合計翻数の計算とポップアップ判定へ進む
+      // ＝＝＝ 前回 TODO だった箇所を変更 ＝＝＝
+      // 合計翻数の計算とポップアップ判定へ進む
+      // ツモかロンか、親か子は仮で false としています
+      calculateScore(yakuArray, isKuiseagari, false, false);
+      // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
     }
+
+    // ＝＝＝ 今回追加した計算機能（1と2の部分） ＝＝＝
+    // 合計翻数の計算とルート分岐判定
+    function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
+      let totalHan = 0;
+      let hasPinfu = false;
+      let hasChiitoitsu = false;
+      let hasToitoiSanankou = false;
+
+      log("【点数計算フェーズ開始】");
+
+      for (let yaku of yakuArray) {
+        let han = YAKU_HAN[yaku] || 0; // 辞書にない未知の役は0翻
+        
+        // 喰い下がり判定
+        if (isKuiseagari && KUISEAGARI_YAKU.includes(yaku)) {
+          han -= 1;
+        }
+        totalHan += han;
+
+        // 特殊条件フラグ
+        if (yaku === "平和") hasPinfu = true;
+        if (yaku === "七対子") hasChiitoitsu = true;
+        if (yaku === "対々和" || yaku === "三暗刻") hasToitoiSanankou = true;
+      }
+
+      log(`最終計算翻数: ${totalHan}翻`);
+
+      if (totalHan >= 5 || hasPinfu || hasChiitoitsu || totalHan === 4) {
+        log("→ ルート1（ポップアップなし・自動計算）へ移行します");
+        executeRoute1(totalHan, hasPinfu, hasChiitoitsu, isTsumo, isOya);
+      } else if (totalHan > 0) {
+        log("→ ルート2（符数選択ポップアップ）を表示します");
+        showFuPopup(totalHan, hasToitoiSanankou, yakuArray, isTsumo, isOya);
+      } else {
+        log("<span style='color:red;'>エラー: 有効な役が抽出できませんでした</span>");
+      }
+    }
+
+    // ルート1の処理（仮）
+    function executeRoute1(totalHan, hasPinfu, hasChiitoitsu, isTsumo, isOya) {
+      log("（ルート1の自動記録処理を実行...）");
+    }
+
+    // ルート2のポップアップ処理（仮）
+    function showFuPopup(totalHan, hasToitoiSanankou, yakuArray, isTsumo, isOya) {
+      let maxFu = 70;
+      let defaultFu = 30;
+
+      const max2KoutsuYaku = ["混全帯幺九", "純全帯幺九"];
+      let hasMax2Koutsu = yakuArray.some(yaku => max2KoutsuYaku.includes(yaku));
+      
+      if (hasToitoiSanankou) {
+        maxFu = 110;
+        defaultFu = 40;
+      } else if (hasMax2Koutsu) {
+        maxFu = 100;
+      }
+
+      log(`【ポップアップUI描画】`);
+      log(`・表示上限: ${maxFu}符まで`);
+      log(`・デフォルト選択: ${defaultFu}符`);
+      
+      let availableFu = [30, 40, 50, 60, 70, 80, 90, 100, 110];
+      let buttonsHtml = "";
+      
+      for (let fu of availableFu) {
+        if (fu <= maxFu) {
+          let isDefault = (fu === defaultFu) ? "★" : "";
+          buttonsHtml += `[${fu}符 ${isDefault}] `;
+        }
+      }
+      log(`・生成ボタン: ${buttonsHtml}`);
+    }
+    // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
 
     // ログ出力用補助関数
     function log(message) {
@@ -182,8 +266,8 @@
     }
 
     window.onload = () => {
-      // GASのURLを設定した後に、以下のコメントアウトを外して実行してください
-       loadDictionary();
+      // 忘れずにGASのURLを設定してから実行してください
+      loadDictionary();
     };
   </script>
 </body>
