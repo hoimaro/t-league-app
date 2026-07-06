@@ -126,13 +126,14 @@
       });
     }
 
-// 3. テキストからの役抽出・変換・鳴きあり処理（改修版）
+    // 3. テキストからの役抽出・変換・鳴きあり処理（改修版）
     function processSpeech(text) {
-      log(`[音声認識]: ${text}`);
-
+    // 最初に半角スペース・全角スペースをすべて削除して詰める
+      let normalizedText = text.replace(/[\s ]+/g, "");
+      log(`[音声認識(補正後)]: ${normalizedText}`);
       let yakuArray = [];
       let isKuiseagari = false;
-      let remainingText = text; // 処理用のテキスト変数
+      let remainingText = normalizedText; // 以降はスペース除去済みのテキストを使用
 
       // ① 「鳴きあり」コマンドの検知と文字列からの除外
       if (remainingText.includes("鳴きあり") || remainingText.includes("なきあり")) {
