@@ -178,8 +178,9 @@
         startBtn.textContent = "🎤 音声入力を開始";
         startBtn.style.background = "#007bff";
 
-        const rawText = rawResultText.value.trim();
-        const officialText = officialInput.value.trim();
+        // 【修正】trim()ではなく、文中の半角・全角スペースも全て削除する
+        const rawText = rawResultText.value.replace(/[\s ]+/g, "");
+        const officialText = officialInput.value.replace(/[\s ]+/g, "");
 
         // 両方埋まっている場合のみ、完全自動でスプレッドシートに送信
         if (rawText && officialText) {
@@ -206,10 +207,13 @@
 
     // 万が一自動送信されなかった場合の手動登録ボタン
     document.getElementById('manualRegBtn').addEventListener('click', async () => {
-      const rawText = rawResultText.value.trim();
-      const officialText = officialInput.value.trim();
+      // 【修正】trim()ではなく、文中の半角・全角スペースも全て削除する
+      const rawText = rawResultText.value.replace(/[\s ]+/g, "");
+      const officialText = officialInput.value.replace(/[\s ]+/g, "");
+      
       if (!officialText) { alert("正式名称を入力してください"); return; }
       if (!rawText) { alert("音声入力を先に行ってください"); return; }
+      
       await sendToSpreadsheet(rawText, officialText, false);
     });
 
