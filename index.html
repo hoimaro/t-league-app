@@ -126,34 +126,51 @@
       });
     }
 
-    // 3. テキストの配列化・完全一致変換・鳴きあり処理
+// 3. テキストからの役抽出・変換・鳴きあり処理（改修版）
     function processSpeech(text) {
       log(`[音声認識]: ${text}`);
 
-      // カンマ、読点、スペースなどで区切って配列化
-      let rawArray = text.split(/[、，,\s]+/);
-      rawArray = rawArray.filter(word => word.trim().length > 0);
-
       let yakuArray = [];
-      let isKuiseagari = false; // 鳴きありフラグ
+      let isKuiseagari = false;
+      let remainingText = text; // 処理用のテキスト変数
 
-      // 配列の要素ごとに完全一致で辞書変換
-      for (let word of rawArray) {
-        // 「鳴きあり」コマンドの抽出と除外
-        if (word === "鳴きあり" || word === "なきあり") {
-          isKuiseagari = true;
-          continue; // 役配列には追加しない
+      // ① 「鳴きあり」コマンドの検知と文字列からの除外
+      if (remainingText.includes("鳴きあり") || remainingText.includes("なきあり")) {
+        isKuiseagari = true;
+        remainingText = remainingText.replace(/鳴きあり|なきあり/g, "");
+      }
+
+      // ② 辞書のキー（よみ）を文字数が「長い順」にソート
+      // ※「メンタンピン」を「ピン」や「タン」より先にヒットさせるための重要処理
+      const sortedKeys = Object.keys(dictionary).sort((a, b) => b.length - a.length);
+
+      // ③ 繋がった文字列の中から、辞書に一致する言葉を探し出す
+      for (const key of sortedKeys) {
+        if (remainingText.includes(key)) {
+          // 辞書から正式名称を取得（例: "リーチ,断幺九,平和"）
+          let officialName = dictionary[key];
+          
+          // 正式名称にカンマが含まれている場合（メンタンピン等）は分割して配列に追加
+          let splitYaku = officialName.split(/[、，,\s]+/);
+          yakuArray.push(...splitYaku);
+
+          // 抽出済みの部分は文字列から削除し、二重カウントを防ぐ
+          remainingText = remainingText.replace(new RegExp(key, 'g'), "");
         }
+      }
 
-        // 辞書に存在すれば正式名称に、無ければそのまま追加
-        let officialYaku = dictionary[word] || word;
-        yakuArray.push(officialYaku);
+      // ④ 辞書変換されずに残った未知の文字列がある場合の処理（誤認識リカバリー用）
+      // 残った文字列から不要な記号を取り除く
+      let unknownParts = remainingText.replace(/[、，,\s]+/g, "").trim();
+      if (unknownParts.length > 0) {
+        log(`<span style="color:red;">【警告】未登録の言葉が含まれています: 「${unknownParts}」</span>`);
+        // ※ここでフェーズ4の「辞書追加プルダウンUI」を呼び出します
       }
 
       log(`[抽出役リスト]: ${yakuArray.join(", ")}`);
       log(`[鳴きあり判定]: ${isKuiseagari ? "適用 (1翻マイナス)" : "なし"}`);
       
-      // TODO: ここから先で合計翻数の計算とポップアップの判定（フェーズ3・4）に進みます
+      // TODO: 合計翻数の計算とポップアップ判定へ進む
     }
 
     // ログ出力用補助関数
