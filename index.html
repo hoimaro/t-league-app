@@ -84,7 +84,7 @@ const YAKU_HAN = {
       "断幺九": 1, "断么九": 1, "タンヤオ": 1,
       "門前清自摸和": 1, "ツモ": 1,
       "白": 1, "發": 1, "中": 1, "東": 1, "南": 1, "西": 1, "北": 1, 
-      "ダブ東": 2, "ダブ南": 1,
+      "ダブ東": 2, "ダブ南": 2,
       "三色同順": 2, 
       "一気通貫": 2, 
       "混全帯幺九": 2, "チャンタ": 2,
@@ -154,7 +154,7 @@ const YAKU_HAN = {
     // 3. テキストからの役抽出・変換・鳴きあり処理
     function processSpeech(text) {
       // 最初に半角スペース・全角スペースをすべて削除して詰める
-      let normalizedText = text.replace(/[\s ]+/g, "");
+
       log(`[音声認識(補正後)]: ${normalizedText}`);
 
       let yakuArray = [];
@@ -182,6 +182,12 @@ const YAKU_HAN = {
 
       // ④ 辞書変換されずに残った未知の文字列がある場合の処理
       let unknownParts = remainingText.replace(/[、，,\s]+/g, "").trim();
+
+      // 【追加】残った文字列が「ひらがな・カタカナ1文字」だけなら、空にして無視する
+      if (unknownParts.length === 1 && /^[ぁ-んァ-ヶ]$/.test(unknownParts)) {
+        unknownParts = "";
+      }
+
       if (unknownParts.length > 0) {
         log(`<span style="color:red;">【警告】未登録の言葉が含まれています: 「${unknownParts}」</span>`);
       }
