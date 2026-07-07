@@ -21,11 +21,11 @@
     
     .box-title { font-size: 14px; font-weight: bold; margin-top: 15px; margin-bottom: 5px; color: #333; text-align: left; max-width: 300px; margin-left: auto; margin-right: auto; }
     
-    /* 正式名称入力欄 */
+    /* 正式名称入力欄 (プルダウンに対応) */
     #officialInput {
       padding: 12px; font-size: 16px; width: 80%; max-width: 300px; 
       border: 2px solid #333; border-radius: 5px; margin-bottom: 10px;
-      box-sizing: border-box;
+      box-sizing: border-box; background-color: #fff; cursor: pointer;
     }
 
     /* 認識された元の言葉エリア（グレー） */
@@ -59,7 +59,66 @@
   <div id="status">辞書データをダウンロードしています...</div>
   
   <div class="box-title">① 正式名称（スプレッドシートのB列用）</div>
-  <input type="text" id="officialInput" placeholder="例：断幺九">
+  <select id="officialInput">
+    <option value="" disabled selected>選択してください</option>
+    <option value="リーチ">リーチ</option>
+    <option value="ダブルリーチ">ダブルリーチ</option>
+    <option value="リーチ,ツモ">リーチ,ツモ</option>    
+    <option value="ツモ">ツモ</option>
+    <option value="一発">一発</option>
+    <option value="ロン">ロン</option>
+    <option value="平和">平和</option>
+    <option value="断么九">断么九</option>
+    <option value="一盃口">一盃口</option>
+    <option value="七対子">七対子</option>
+    <option value="対々和">対々和</option>
+    <option value="三暗刻">三暗刻</option>
+    <option value="四暗刻">四暗刻</option>
+    <option value="三色同順">三色同順</option>
+    <option value="三色同刻">三色同刻</option>
+    <option value="一気通貫">一気通貫</option>
+    <option value="混全帯么九">混全帯么九</option>
+    <option value="純全帯么九">純全帯么九</option>
+    <option value="混一色">混一色</option>
+    <option value="清一色">清一色</option>
+    <option value="二盃口">二盃口</option>
+    <option value="混老頭">混老頭</option>
+    <option value="清老頭">清老頭</option>
+    <option value="小三元">小三元</option>
+    <option value="大三元">大三元</option>
+    <option value="小四喜">小四喜</option>
+    <option value="大四喜">大四喜</option>
+    <option value="緑一色">緑一色</option>
+    <option value="九蓮宝燈">九蓮宝燈</option>
+    <option value="国士無双">国士無双</option>
+    <option value="天和">天和</option>
+    <option value="地和">地和</option>
+    <option value="海底撈月">海底撈月</option>
+    <option value="河底撈魚">河底撈魚</option>
+    <option value="嶺上開花">嶺上開花</option>
+    <option value="嶺上開花,ツモ">嶺上開花,ツモ</option>
+    <option value="リーチ,断么九,平和">リーチ,断么九,平和</option>
+    <option value="槍槓">槍槓</option>
+    <option value="字一色">字一色</option>
+    <option value="三槓子">三槓子</option>
+    <option value="四槓子">四槓子</option>
+    <option value="断么九,鳴きあり">断么九,鳴きあり</option>   
+    <option value="鳴きあり">鳴きあり</option>
+    <option value="ドラ">ドラ</option>
+    <option value="ドラ2">ドラ2</option>
+    <option value="ドラ3">ドラ3</option>
+    <option value="ドラ4">ドラ4</option>
+    <option value="ドラ5">ドラ5</option>
+    <option value="ドラ6">ドラ6</option>
+    <option value="ドラ7">ドラ7</option>
+    <option value="ドラ8">ドラ8</option>
+    <option value="ドラ9">ドラ9</option>
+    <option value="ドラ10">ドラ10</option>
+    <option value="役牌">役牌</option>
+    <option value="役牌2">役牌2</option>
+    <option value="役牌3">役牌3</option>
+    <option value="役牌4">役牌4</option>
+  </select>
 
   <div class="box-title">② 認識された元の言葉（スプレッドシートのA列用）</div>
   <textarea id="rawResult" readonly placeholder="喋り終わるとここに入り、自動登録されます"></textarea>
@@ -103,7 +162,7 @@
           startBtn.textContent = "🎤 音声入力を開始";
           startBtn.style.background = "#007bff";
           startBtn.style.cursor = "pointer";
-          statusText.textContent = "待機中... 正式名称を入力して喋ってください。";
+          statusText.textContent = "待機中... 正式名称を選択して喋ってください。";
           
           initializeSpeechRecognition();
         } else {
@@ -172,13 +231,12 @@
         resultText.value = applyDictionary(transcript);
       };
 
-      // ★ここが超効率化ポイント：音声認識が終了した瞬間に自動で動きます
+      // 音声認識が終了した瞬間に自動で動きます
       recognition.onend = async () => {
         isRecognizing = false;
         startBtn.textContent = "🎤 音声入力を開始";
         startBtn.style.background = "#007bff";
 
-        // 【修正】trim()ではなく、文中の半角・全角スペースも全て削除する
         const rawText = rawResultText.value.replace(/[\s ]+/g, "");
         const officialText = officialInput.value.replace(/[\s ]+/g, "");
 
@@ -186,7 +244,7 @@
         if (rawText && officialText) {
           await sendToSpreadsheet(rawText, officialText, true);
         } else if (rawText && !officialText) {
-          statusText.textContent = "【警告】①正式名称が空欄のため、自動登録をスキップしました。";
+          statusText.textContent = "【警告】①正式名称が未選択のため、自動登録をスキップしました。";
           statusText.style.color = "orange";
         } else {
           statusText.textContent = "待機中...";
@@ -207,11 +265,10 @@
 
     // 万が一自動送信されなかった場合の手動登録ボタン
     document.getElementById('manualRegBtn').addEventListener('click', async () => {
-      // 【修正】trim()ではなく、文中の半角・全角スペースも全て削除する
       const rawText = rawResultText.value.replace(/[\s ]+/g, "");
       const officialText = officialInput.value.replace(/[\s ]+/g, "");
       
-      if (!officialText) { alert("正式名称を入力してください"); return; }
+      if (!officialText) { alert("正式名称を選択してください"); return; }
       if (!rawText) { alert("音声入力を先に行ってください"); return; }
       
       await sendToSpreadsheet(rawText, officialText, false);
