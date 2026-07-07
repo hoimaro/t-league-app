@@ -235,12 +235,18 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
   }
 }
 
-// ルート1の処理（仮）
+// ルート1の処理（自動計算して送信）
 function executeRoute1(totalHan, hasPinfu, hasChiitoitsu, isTsumo, isOya) {
-  log("（ルート1の自動記録処理を実行...）");
+  let autoFu = 30; // 基本を30符とする
+  if (hasChiitoitsu) autoFu = 25;
+  if (hasPinfu && isTsumo) autoFu = 20;
+
+  log(`（ルート1：${autoFu}符として自動送信処理を実行します）`);
+  // 本来はUI情報を使用しますが、仮でテスト送信
+  sendMatchDataToGAS(yakuArray, totalHan, autoFu, isOya, isTsumo);
 }
 
-// ルート2のポップアップ処理（仮）
+// ルート2のポップアップ処理（今回は符が選ばれたテイで送信）
 function showFuPopup(totalHan, hasToitoiSanankou, yakuArray, isTsumo, isOya) {
   let maxFu = 70;
   let defaultFu = 30;
@@ -248,27 +254,13 @@ function showFuPopup(totalHan, hasToitoiSanankou, yakuArray, isTsumo, isOya) {
   const max2KoutsuYaku = ["混全帯幺九", "純全帯幺九"];
   let hasMax2Koutsu = yakuArray.some(yaku => max2KoutsuYaku.includes(yaku));
   
-  if (hasToitoiSanankou) {
-    maxFu = 110;
-    defaultFu = 40;
-  } else if (hasMax2Koutsu) {
-    maxFu = 100;
-  }
+  if (hasToitoiSanankou) { maxFu = 110; defaultFu = 40; } 
+  else if (hasMax2Koutsu) { maxFu = 100; }
 
-  log(`【ポップアップUI描画】`);
-  log(`・表示上限: ${maxFu}符まで`);
-  log(`・デフォルト選択: ${defaultFu}符`);
+  log(`【ポップアップUI】デフォルトの ${defaultFu}符 が選択されたと仮定して送信します。`);
   
-  let availableFu = [30, 40, 50, 60, 70, 80, 90, 100, 110];
-  let buttonsHtml = "";
-  
-  for (let fu of availableFu) {
-    if (fu <= maxFu) {
-      let isDefault = (fu === defaultFu) ? "★" : "";
-      buttonsHtml += `[${fu}符 ${isDefault}] `;
-    }
-  }
-  log(`・生成ボタン: ${buttonsHtml}`);
+  // 本来はユーザーがボタンを押した後に送信しますが、今回は自動でデフォルト値を送信
+  sendMatchDataToGAS(yakuArray, totalHan, defaultFu, isOya, isTsumo);
 }
 
 // ログ出力用補助関数
@@ -283,6 +275,83 @@ function log(message) {
 window.onload = () => {
   loadDictionary();
 };
+
+// 5. アガリ打点（基本点）の計算ロジック（切り上げ満貫対応）
+function calculateScorePoints(han, fu, isOya, isTsumo) {
+  let basePoint = 0;
+
+  // 満貫以上の判定
+  if (han >= 13) {
+    basePoint = 8000; // 役満（子32000 / 親48000）
+  } else if (han >= 11) {
+    basePoint = 6000; // 三倍満
+  } else if (han >= 8) {
+    basePoint = 4000; // 倍満
+  } else if (han >= 6) {
+    basePoint = 3000; // 跳満
+  } else if (han >= 5 || (han === 4 && fu >= 30) || (han === 3 && fu >= 60)) {
+    basePoint = 2000; // 満貫（切り上げ満貫含む）
+  } else {
+    // 通常の計算（符 × 2^(翻+2)）
+    basePoint = fu * Math.pow(2, han + 2);
+    if (basePoint > 2000) basePoint = 2000; // 念のため満貫打ち止め
+  }
+
+  // アガリ打点の算出（親は1.5倍して10の位切り上げ、子はそのまま等）
+  // ※ここではシンプルに「合計の支払い点数」を算出します
+  let totalScore = 0;
+  if (isOya) {
+    totalScore = Math.ceil((basePoint * 6) / 100) * 100;
+  } else {
+    totalScore = Math.ceil((basePoint * 4) / 100) * 100;
+  }
+
+  return totalScore;
+}
+
+// 6. GASへのデータ送信（POST処理）
+async function sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo) {
+  // アガリ打点を計算
+  const scorePoint = calculateScorePoints(totalHan, fu, isOya, isTsumo);
+  
+  log(`【送信データ準備】`);
+  log(`・確定役: ${yakuArray.join(", ")}`);
+  log(`・合計: ${totalHan}翻 ${fu}符`);
+  log(`・打点: ${scorePoint}点`);
+
+  // 卓UIからアガリ者、放銃者を取得する想定（今回は仮データ）
+  const matchRecord = {
+    action: "recordMatch",
+    // matchData: [対局ID, 卓ID, 局数, 本場, 供託数, 結果, アガリ者, 放銃者, 合計翻数, アガリ打点, リーチ者]
+    matchData: ["A_20260708_01", "A", 1, 0, 0, (isTsumo ? "ツモ" : "ロン"), "自分", "対面", totalHan, scorePoint, ""],
+    
+    // yakuData: 役履歴展開用のデータ配列
+    yakuData: yakuArray.map(yaku => ({
+      matchId: "A_20260708_01",
+      winner: "自分",
+      yaku: yaku
+    }))
+  };
+
+  log(`サーバーへ送信しています...`);
+  
+  try {
+    const response = await fetch(CONFIG_GAS_URL, {
+      method: "POST",
+      body: JSON.stringify(matchRecord)
+    });
+    const resultData = await response.json();
+
+    if (resultData.result === "success") {
+      log(`<span style="color:green; font-weight:bold;">【登録完了！】スプレッドシートに記録されました。</span>`);
+      // TODO: ここで画面同期や親の移動処理へ繋ぐ
+    } else {
+      log(`<span style="color:red;">【エラー】記録に失敗しました: ${resultData.message}</span>`);
+    }
+  } catch (error) {
+    log(`<span style="color:red;">【通信エラー】GASに接続できません。</span>`);
+  }
+}
   </script>
 </body>
 </html>
