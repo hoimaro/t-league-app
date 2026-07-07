@@ -102,212 +102,197 @@ const YAKU_HAN = {
     // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
 
     // 1. 辞書データの読み込み
-    async function loadDictionary() {
-      try {
-        const response = await fetch(CONFIG_GAS_URL + "?action=getDictionary");
-        const resultData = await response.json();
+// 1. 辞書データの読み込み
+async function loadDictionary() {
+  try {
+    const response = await fetch(CONFIG_GAS_URL + "?action=getDictionary");
+    const resultData = await response.json();
 
-        if (resultData.result === "success") {
-          dictionary = resultData.dictionary;
-          const micBtn = document.getElementById('micBtn');
-          micBtn.disabled = false;
-          micBtn.textContent = "🎤 アガリ役を音声入力";
-          log("辞書の読み込みが完了しました。");
-          initSpeechRecognition();
-        }
-      } catch (error) {
-        log("通信エラー: 辞書が取得できません。URLを確認してください。");
-      }
-    }
-
-    // 2. 音声認識の初期化
-    function initSpeechRecognition() {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) return;
-
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'ja-JP';
-      recognition.continuous = false; 
-
+    if (resultData.result === "success") {
+      dictionary = resultData.dictionary;
       const micBtn = document.getElementById('micBtn');
-
-      recognition.onstart = () => {
-        micBtn.textContent = "⏹ 録音中...";
-        micBtn.style.background = "#dc3545"; // 赤色に変更
-      };
-
-      recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        processSpeech(transcript);
-      };
-
-      recognition.onend = () => {
+      if(micBtn) {
+        micBtn.disabled = false;
         micBtn.textContent = "🎤 アガリ役を音声入力";
-        micBtn.style.background = "#007bff";
-      };
-
-      micBtn.addEventListener('click', () => {
-        recognition.start(); 
-      });
+      }
+      log("辞書の読み込みが完了しました。");
+      initSpeechRecognition();
     }
+  } catch (error) {
+    log("通信エラー: 辞書が取得できません。URLを確認してください。");
+  }
+}
 
-    // 3. テキストからの役抽出・変換・鳴きあり処理
-    function processSpeech(text) {
+// 2. 音声認識の初期化
+function initSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return;
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'ja-JP';
+  recognition.continuous = false; 
+
+  const micBtn = document.getElementById('micBtn');
+  if(!micBtn) return;
+
+  recognition.onstart = () => {
+    micBtn.textContent = "⏹ 録音中...";
+    micBtn.style.background = "#dc3545"; 
+  };
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    processSpeech(transcript);
+  };
+
+  recognition.onend = () => {
+    micBtn.textContent = "🎤 アガリ役を音声入力";
+    micBtn.style.background = "#007bff";
+  };
+
+  micBtn.addEventListener('click', () => {
+    recognition.start(); 
+  });
+}
+
 // 3. テキストからの役抽出・変換・鳴きあり処理
-    function processSpeech(text) {
-      // ▼ エラーの原因：この行が消えていたため復活させました！
-      let normalizedText = text.replace(/[\s ]+/g, "");
+function processSpeech(text) {
+  let normalizedText = text.replace(/[\s ]+/g, "");
+  log(`[音声認識(補正後)]: ${normalizedText}`);
+
+  let yakuArray = [];
+  let isKuiseagari = false;
+  let remainingText = normalizedText;
+
+  if (remainingText.includes("鳴きあり") || remainingText.includes("なきあり")) {
+    isKuiseagari = true;
+    remainingText = remainingText.replace(/鳴きあり|なきあり/g, "");
+  }
+
+  const sortedKeys = Object.keys(dictionary).sort((a, b) => b.length - a.length);
+
+  for (const key of sortedKeys) {
+    if (remainingText.includes(key)) {
+      let officialName = dictionary[key];
       
-      log(`[音声認識(補正後)]: ${normalizedText}`);
-
-      let yakuArray = [];
-      let isKuiseagari = false;
-      let remainingText = normalizedText;
-
-      // ① 「鳴きあり」コマンドの検知と文字列からの除外
-      if (remainingText.includes("鳴きあり") || remainingText.includes("なきあり")) {
-        isKuiseagari = true;
-        remainingText = remainingText.replace(/鳴きあり|なきあり/g, "");
+      if (officialName !== "除外") {
+        let splitYaku = officialName.split(/[、，,\s]+/);
+        yakuArray.push(...splitYaku);
       }
-
-      // ② 辞書のキー（よみ）を文字数が「長い順」にソート
-      const sortedKeys = Object.keys(dictionary).sort((a, b) => b.length - a.length);
-
-      // ③ 繋がった文字列の中から、辞書に一致する言葉を探し出す
-      for (const key of sortedKeys) {
-        if (remainingText.includes(key)) {
-          let officialName = dictionary[key];
-          
-          // 【追加機能1】正式名称が「除外」でない場合のみ役リストに追加する
-          if (officialName !== "除外") {
-            let splitYaku = officialName.split(/[、，,\s]+/);
-            yakuArray.push(...splitYaku);
-          }
-
-          // 抽出済みの部分は文字列から削除する（「除外」指定の言葉もここで消えます）
-          remainingText = remainingText.replace(new RegExp(key, 'g'), "");
-        }
-      }
-
-      // ④ 辞書変換されずに残った未知の文字列がある場合の処理
-      let unknownParts = remainingText.replace(/[、，,\s]+/g, "").trim();
-
-      // 【追加機能2】残った文字列が「ひらがな・カタカナ1文字」だけなら無視する
-      if (unknownParts.length === 1 && /^[ぁ-んァ-ヶ]$/.test(unknownParts)) {
-        unknownParts = "";
-      }
-
-      if (unknownParts.length > 0) {
-        log(`<span style="color:red;">【警告】未登録の言葉が含まれています: 「${unknownParts}」</span>`);
-      }
-
-      log(`[抽出役リスト]: ${yakuArray.join(", ")}`);
-      log(`[鳴きあり判定]: ${isKuiseagari ? "適用 (1翻マイナス)" : "なし"}`);
-      
-      // 合計翻数の計算とポップアップ判定へ進む
-      calculateScore(yakuArray, isKuiseagari, false, false);
+      remainingText = remainingText.replace(new RegExp(key, 'g'), "");
     }
+  }
 
-    // ＝＝＝ 今回追加した計算機能（1と2の部分） ＝＝＝
-    // 合計翻数の計算とルート分岐判定
-    function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
-      let totalHan = 0;
-      let hasPinfu = false;
-      let hasChiitoitsu = false;
-      let hasToitoiSanankou = false;
+  let unknownParts = remainingText.replace(/[、，,\s]+/g, "").trim();
 
-      log("【点数計算フェーズ開始】");
+  if (unknownParts.length === 1 && /^[ぁ-んァ-ヶ]$/.test(unknownParts)) {
+    unknownParts = "";
+  }
 
-      for (let yaku of yakuArray) {
-        let han = 0;
+  if (unknownParts.length > 0) {
+    log(`<span style="color:red;">【警告】未登録の言葉が含まれています: 「${unknownParts}」</span>`);
+  }
 
-        // 【追加】ドラ・赤の動的数値抽出処理
-        if (yaku.includes("ドラ") || yaku.includes("赤")) {
-          // 文字列の中から数字（連続する数字）を探し出す
-          let match = yaku.match(/\d+/);
-          if (match) {
-            han = parseInt(match[0], 10); // 例：「ドラ2」なら 2 を取得
-          } else {
-            han = 1; // 数字がない「ドラ」単体の場合は1翻とする
-          }
-        } else {
-          // 通常の役の場合はマスタから引く
-          han = YAKU_HAN[yaku] || 0; 
-        }
-        
-        // 喰い下がり判定
-        if (isKuiseagari && KUISEAGARI_YAKU.includes(yaku)) {
-          han -= 1;
-        }
-        totalHan += han;
+  log(`[抽出役リスト]: ${yakuArray.join(", ")}`);
+  log(`[鳴きあり判定]: ${isKuiseagari ? "適用 (1翻マイナス)" : "なし"}`);
+  
+  calculateScore(yakuArray, isKuiseagari, false, false);
+}
 
-        // 特殊条件フラグ
-        if (yaku === "平和") hasPinfu = true;
-        if (yaku === "七対子") hasChiitoitsu = true;
-        if (yaku === "対々和" || yaku === "三暗刻") hasToitoiSanankou = true;
-      }
+// 4. 合計翻数の計算とルート分岐判定
+function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
+  let totalHan = 0;
+  let hasPinfu = false;
+  let hasChiitoitsu = false;
+  let hasToitoiSanankou = false;
 
-      log(`最終計算翻数: ${totalHan}翻`);
+  log("【点数計算フェーズ開始】");
 
-      if (totalHan >= 5 || hasPinfu || hasChiitoitsu || totalHan === 4) {
-        log("→ ルート1（ポップアップなし・自動計算）へ移行します");
-        executeRoute1(totalHan, hasPinfu, hasChiitoitsu, isTsumo, isOya);
-      } else if (totalHan > 0) {
-        log("→ ルート2（符数選択ポップアップ）を表示します");
-        showFuPopup(totalHan, hasToitoiSanankou, yakuArray, isTsumo, isOya);
+  for (let yaku of yakuArray) {
+    let han = 0;
+
+    if (yaku.includes("ドラ") || yaku.includes("赤")) {
+      let match = yaku.match(/\d+/);
+      if (match) {
+        han = parseInt(match[0], 10);
       } else {
-        log("<span style='color:red;'>エラー: 有効な役が抽出できませんでした</span>");
+        han = 1;
       }
+    } else {
+      han = YAKU_HAN[yaku] || 0; 
     }
-
-    // ルート1の処理（仮）
-    function executeRoute1(totalHan, hasPinfu, hasChiitoitsu, isTsumo, isOya) {
-      log("（ルート1の自動記録処理を実行...）");
+    
+    if (isKuiseagari && KUISEAGARI_YAKU.includes(yaku)) {
+      han -= 1;
     }
+    totalHan += han;
 
-    // ルート2のポップアップ処理（仮）
-    function showFuPopup(totalHan, hasToitoiSanankou, yakuArray, isTsumo, isOya) {
-      let maxFu = 70;
-      let defaultFu = 30;
+    if (yaku === "平和") hasPinfu = true;
+    if (yaku === "七対子") hasChiitoitsu = true;
+    if (yaku === "対々和" || yaku === "三暗刻") hasToitoiSanankou = true;
+  }
 
-      const max2KoutsuYaku = ["混全帯幺九", "純全帯幺九"];
-      let hasMax2Koutsu = yakuArray.some(yaku => max2KoutsuYaku.includes(yaku));
-      
-      if (hasToitoiSanankou) {
-        maxFu = 110;
-        defaultFu = 40;
-      } else if (hasMax2Koutsu) {
-        maxFu = 100;
-      }
+  log(`最終計算翻数: ${totalHan}翻`);
 
-      log(`【ポップアップUI描画】`);
-      log(`・表示上限: ${maxFu}符まで`);
-      log(`・デフォルト選択: ${defaultFu}符`);
-      
-      let availableFu = [30, 40, 50, 60, 70, 80, 90, 100, 110];
-      let buttonsHtml = "";
-      
-      for (let fu of availableFu) {
-        if (fu <= maxFu) {
-          let isDefault = (fu === defaultFu) ? "★" : "";
-          buttonsHtml += `[${fu}符 ${isDefault}] `;
-        }
-      }
-      log(`・生成ボタン: ${buttonsHtml}`);
+  if (totalHan >= 5 || hasPinfu || hasChiitoitsu || totalHan === 4) {
+    log("→ ルート1（ポップアップなし・自動計算）へ移行します");
+    executeRoute1(totalHan, hasPinfu, hasChiitoitsu, isTsumo, isOya);
+  } else if (totalHan > 0) {
+    log("→ ルート2（符数選択ポップアップ）を表示します");
+    showFuPopup(totalHan, hasToitoiSanankou, yakuArray, isTsumo, isOya);
+  } else {
+    log("<span style='color:red;'>エラー: 有効な役が抽出できませんでした</span>");
+  }
+}
+
+// ルート1の処理（仮）
+function executeRoute1(totalHan, hasPinfu, hasChiitoitsu, isTsumo, isOya) {
+  log("（ルート1の自動記録処理を実行...）");
+}
+
+// ルート2のポップアップ処理（仮）
+function showFuPopup(totalHan, hasToitoiSanankou, yakuArray, isTsumo, isOya) {
+  let maxFu = 70;
+  let defaultFu = 30;
+
+  const max2KoutsuYaku = ["混全帯幺九", "純全帯幺九"];
+  let hasMax2Koutsu = yakuArray.some(yaku => max2KoutsuYaku.includes(yaku));
+  
+  if (hasToitoiSanankou) {
+    maxFu = 110;
+    defaultFu = 40;
+  } else if (hasMax2Koutsu) {
+    maxFu = 100;
+  }
+
+  log(`【ポップアップUI描画】`);
+  log(`・表示上限: ${maxFu}符まで`);
+  log(`・デフォルト選択: ${defaultFu}符`);
+  
+  let availableFu = [30, 40, 50, 60, 70, 80, 90, 100, 110];
+  let buttonsHtml = "";
+  
+  for (let fu of availableFu) {
+    if (fu <= maxFu) {
+      let isDefault = (fu === defaultFu) ? "★" : "";
+      buttonsHtml += `[${fu}符 ${isDefault}] `;
     }
-    // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+  }
+  log(`・生成ボタン: ${buttonsHtml}`);
+}
 
-    // ログ出力用補助関数
-    function log(message) {
-      const logArea = document.getElementById('logArea');
-      logArea.innerHTML += message + "<br>";
-      logArea.scrollTop = logArea.scrollHeight;
-    }
+// ログ出力用補助関数
+function log(message) {
+  const logArea = document.getElementById('logArea');
+  if(logArea) {
+    logArea.innerHTML += message + "<br>";
+    logArea.scrollTop = logArea.scrollHeight;
+  }
+}
 
-    window.onload = () => {
-      // 忘れずにGASのURLを設定してから実行してください
-      loadDictionary();
-    };
+window.onload = () => {
+  loadDictionary();
+};
   </script>
 </body>
 </html>
