@@ -247,9 +247,15 @@ log(`[現在の役リスト]: ${globalYakuArray.join(", ")}`);
   // 第3引数を isTsumo 変数に変更して点数計算へ渡す
   calculateScore(globalYakuArray, globalIsKuiseagari, isTsumo, false);
 }
+  
 // 4. 合計翻数の計算とルート分岐判定
 function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
   log("【点数計算フェーズ開始】");
+
+  // ▼ 今回追加：役リストに「鳴きあり」が入っていれば確実に食い下がりを適用する
+  if (yakuArray.includes("鳴きあり")) {
+    isKuiseagari = true;
+  }
 
   // 役満フィルター処理
   let yakumanList = yakuArray.filter(yaku => YAKU_HAN[yaku] === 13);
@@ -268,7 +274,9 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
     let han = YAKU_HAN[yaku] || 0; 
     
     // 喰い下がりの処理
-    if (isKuiseagari && KUISEAGARI_YAKU.includes(yaku)) han -= 1;
+    if (isKuiseagari && KUISEAGARI_YAKU.includes(yaku)) {
+      han -= 1;
+    }
     totalHan += han;
 
     if (yaku === "平和") hasPinfu = true;
@@ -279,7 +287,6 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
   log(`最終計算翻数: ${totalHan}翻`);
 
   if (totalHan > 0) {
-    // 古いルート分岐を廃止し、すべて確認ポップアップへ送る
     showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, isTsumo, isOya, yakuArray);
   } else {
     log("<span style='color:red;'>エラー: 有効な役が抽出できませんでした</span>");
