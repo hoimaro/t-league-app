@@ -192,7 +192,6 @@ function processSpeech(text) {
   let isKuiseagari = false;
   let remainingText = normalizedText;
 
-  // ① 直接発声された「鳴きあり」を検知
   if (remainingText.includes("鳴きあり") || remainingText.includes("なきあり")) {
     isKuiseagari = true;
     remainingText = remainingText.replace(/鳴きあり|なきあり/g, "");
@@ -211,7 +210,6 @@ function processSpeech(text) {
     }
   }
 
-  // ② ▼今回の修正：辞書変換で合流した「鳴きあり」をここで検知して、確実にリストから消去する
   if (extractedYaku.includes("鳴きあり")) {
     isKuiseagari = true;
     extractedYaku = extractedYaku.filter(yaku => yaku !== "鳴きあり");
@@ -224,18 +222,33 @@ function processSpeech(text) {
     log(`<span style="color:red;">【警告】未登録の言葉が含まれています: 「${unknownParts}」</span>`);
   }
 
-  // モードごとの合体処理
+  // ▼ 学習ロジック（ここから）▼
   if (isAddingMode) {
+    // 提案通りの安全装置：追加された役が「1つだけ」の時のみ、正式名称候補として記憶する
+    if (extractedYaku.length === 1) {
+      globalAddedYaku = extractedYaku[0];
+    } else {
+      globalAddedYaku = ""; // 複数ある場合は学習キャンセル
+    }
+    
     globalYakuArray.push(...extractedYaku);
-    if (isKuiseagari) globalIsKuiseagari = true; // ここで確実に記憶に焼き付ける
+    if (isKuiseagari) globalIsKuiseagari = true;
     isAddingMode = false; 
     log("【追加処理】前回までの役と合体させました。");
   } else {
     globalYakuArray = extractedYaku;
     globalIsKuiseagari = isKuiseagari;
+    
+    // 初回発声で未登録の言葉があったら記憶する
+    if (unknownParts) {
+      globalUnknownWord = unknownParts;
+    } else {
+      globalUnknownWord = "";
+    }
+    globalAddedYaku = ""; // 毎回リセット
   }
+  // ▲ 学習ロジック（ここまで）▲
 
-  // 重複削除とソート
   globalYakuArray = [...new Set(globalYakuArray)];
   globalYakuArray.sort((a, b) => {
     let indexA = YAKU_ORDER.indexOf(a);
@@ -247,12 +260,7 @@ function processSpeech(text) {
 
   log(`[現在の役リスト]: ${globalYakuArray.join(", ")}`);
   
-  // ツモ判定
-  let isTsumo = globalYakuArray.includes("ツモ") || 
-                globalYakuArray.includes("嶺上開花") || 
-                globalYakuArray.includes("海底撈月") || 
-                globalYakuArray.includes("天和") || 
-                globalYakuArray.includes("地和");
+  let isTsumo = globalYakuArray.includes("ツモ") || globalYakuArray.includes("嶺上開花") || globalYakuArray.includes("海底撈月") || globalYakuArray.includes("天和") || globalYakuArray.includes("地和");
   
   calculateScore(globalYakuArray, globalIsKuiseagari, isTsumo, false);
 }
@@ -384,14 +392,19 @@ function startAddVoice() {
   document.getElementById('micBtn').click(); // マイクを自動起動
 }
 
-// 【新規追加】「やり直し」ボタンの処理
+// やり直しボタンの処理
 function startRetryVoice() {
   isAddingMode = false;
-  globalYakuArray = []; // 今までの役をリセット
+  globalYakuArray = []; 
   globalIsKuiseagari = false;
+  
+  // ▼ 今回追加：やり直した場合は学習データを白紙に戻す
+  globalUnknownWord = ""; 
+  globalAddedYaku = "";   
+  
   document.getElementById('confirmPopup').style.display = "none";
   log("🔄 【やり直し】もう一度すべての役を発声してください...");
-  document.getElementById('micBtn').click(); // マイクを自動起動
+  document.getElementById('micBtn').click(); 
 }
 
 // 5. アガリ打点の計算ロジック（ツモ表示テキストの生成を追加）
@@ -442,17 +455,23 @@ function calculateScorePoints(han, fu, isOya, isTsumo) {
 
 // 6. GASへのデータ送信と結果表示
 async function sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo) {
-  // 先ほどの関数から、合計点と表示テキストの両方を受け取る
+  // ▼ 今回追加：確定ボタンが押された瞬間に、条件が揃っていれば自動学習を走らせる
+  if (globalUnknownWord && globalAddedYaku) {
+    autoRegisterDictionary(globalUnknownWord, globalAddedYaku);
+    // 送信後は学習データをリセット
+    globalUnknownWord = "";
+    globalAddedYaku = "";
+  }
+
   const scoreResult = calculateScorePoints(totalHan, fu, isOya, isTsumo);
-  const scorePoint = scoreResult.total; // スプレッドシートに送る合計点
-  const scoreText = scoreResult.text;   // 画面に表示する「1000/2000」など
+  const scorePoint = scoreResult.total; 
+  const scoreText = scoreResult.text;   
   
-  // 送信中であることを画面上部に表示
   showResultView(`送信しています...<br>${yakuArray.join(", ")}<br>${totalHan}翻 ${fu}符`, "#ffc107", "#000");
 
   const matchRecord = {
     action: "recordMatch",
-    matchData: ["A_20260708_01", "A", 1, 0, 0, (isTsumo ? "ツモ" : "ロン"), "自分", "対面", totalHan, scorePoint, ""], // 送るデータはscorePoint（合計点）
+    matchData: ["A_20260708_01", "A", 1, 0, 0, (isTsumo ? "ツモ" : "ロン"), "自分", "対面", totalHan, scorePoint, ""], 
     yakuData: yakuArray.map(yaku => ({ matchId: "A_20260708_01", winner: "自分", yaku: yaku }))
   };
 
@@ -464,7 +483,6 @@ async function sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo) {
     const resultData = await response.json();
 
     if (resultData.result === "success") {
-      // 成功したら画面には scoreText（分割表示）を出す
       showResultView(`【登録完了】<br>${totalHan}翻 ${fu}符<br><span style="font-size:24px;">${scoreText}</span>`, "#28a745", "#fff", 3000);
       log("スプレッドシートへの記録が完了しました。");
     } else {
