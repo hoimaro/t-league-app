@@ -216,21 +216,14 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
 
   for (let yaku of yakuArray) {
     let han = 0;
-
     if (yaku.includes("ドラ") || yaku.includes("赤")) {
       let match = yaku.match(/\d+/);
-      if (match) {
-        han = parseInt(match[0], 10);
-      } else {
-        han = 1;
-      }
+      han = match ? parseInt(match[0], 10) : 1;
     } else {
       han = YAKU_HAN[yaku] || 0; 
     }
     
-    if (isKuiseagari && KUISEAGARI_YAKU.includes(yaku)) {
-      han -= 1;
-    }
+    if (isKuiseagari && KUISEAGARI_YAKU.includes(yaku)) han -= 1;
     totalHan += han;
 
     if (yaku === "平和") hasPinfu = true;
@@ -240,117 +233,115 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
 
   log(`最終計算翻数: ${totalHan}翻`);
 
+  // ルート分岐の呼び出し（yakuArrayを一緒に渡すように修正）
   if (totalHan >= 5 || hasPinfu || hasChiitoitsu || totalHan === 4) {
-    log("→ ルート1（ポップアップなし・自動計算）へ移行します");
-    executeRoute1(totalHan, hasPinfu, hasChiitoitsu, isTsumo, isOya);
+    executeRoute1(totalHan, hasPinfu, hasChiitoitsu, isTsumo, isOya, yakuArray);
   } else if (totalHan > 0) {
-    log("→ ルート2（符数選択ポップアップ）を表示します");
     showFuPopup(totalHan, hasToitoiSanankou, yakuArray, isTsumo, isOya);
   } else {
     log("<span style='color:red;'>エラー: 有効な役が抽出できませんでした</span>");
   }
 }
 
-// ルート1の処理（自動計算して送信）
-function executeRoute1(totalHan, hasPinfu, hasChiitoitsu, isTsumo, isOya) {
+// ルート1の処理（ポップアップを出さずに即座に送信）
+function executeRoute1(totalHan, hasPinfu, hasChiitoitsu, isTsumo, isOya, yakuArray) {
   let autoFu = 30; // 基本を30符とする
   if (hasChiitoitsu) autoFu = 25;
   if (hasPinfu && isTsumo) autoFu = 20;
 
-  log(`（ルート1：${autoFu}符として自動送信処理を実行します）`);
-  // 本来はUI情報を使用しますが、仮でテスト送信
   sendMatchDataToGAS(yakuArray, totalHan, autoFu, isOya, isTsumo);
 }
 
-// ルート2のポップアップ処理（今回は符が選ばれたテイで送信）
+// ルート2のポップアップ処理（画面にUIを描画する）
 function showFuPopup(totalHan, hasToitoiSanankou, yakuArray, isTsumo, isOya) {
   let maxFu = 70;
   let defaultFu = 30;
 
-  const max2KoutsuYaku = ["混全帯幺九", "純全帯幺九"];
+  const max2KoutsuYaku = ["混全帯幺九", "純全帯幺九", "三色同順", "一気通貫"];
   let hasMax2Koutsu = yakuArray.some(yaku => max2KoutsuYaku.includes(yaku));
   
   if (hasToitoiSanankou) { maxFu = 110; defaultFu = 40; } 
   else if (hasMax2Koutsu) { maxFu = 100; }
 
-  log(`【ポップアップUI】デフォルトの ${defaultFu}符 が選択されたと仮定して送信します。`);
+  // HTMLの要素を取得して文字をセット
+  const popup = document.getElementById('fuPopup');
+  const infoText = document.getElementById('fuPopupInfo');
+  const buttonsArea = document.getElementById('fuButtonsArea');
   
-  // 本来はユーザーがボタンを押した後に送信しますが、今回は自動でデフォルト値を送信
-  sendMatchDataToGAS(yakuArray, totalHan, defaultFu, isOya, isTsumo);
-}
+  infoText.innerHTML = `確定役: ${yakuArray.join(", ")}<br>計算翻数: <b>${totalHan}翻</b>`;
+  buttonsArea.innerHTML = ""; // ボタンエリアをリセット
 
-// ログ出力用補助関数
-function log(message) {
-  const logArea = document.getElementById('logArea');
-  if(logArea) {
-    logArea.innerHTML += message + "<br>";
-    logArea.scrollTop = logArea.scrollHeight;
+  // 動的にボタンを生成して並べる
+  let availableFu = [30, 40, 50, 60, 70, 80, 90, 100, 110];
+  for (let fu of availableFu) {
+    if (fu <= maxFu) {
+      let btn = document.createElement("button");
+      btn.textContent = fu + "符";
+      
+      // デフォルトのボタンだけ色を変える
+      if (fu === defaultFu) {
+        btn.style.background = "#007bff";
+        btn.style.color = "#fff";
+        btn.style.border = "2px solid #0056b3";
+        btn.textContent = `★ ${fu}符`;
+      } else {
+        btn.style.background = "#f8f9fa";
+        btn.style.color = "#333";
+        btn.style.border = "1px solid #ccc";
+      }
+      
+      btn.style.padding = "10px 15px";
+      btn.style.borderRadius = "5px";
+      btn.style.fontSize = "16px";
+      btn.style.cursor = "pointer";
+      btn.style.flex = "1 1 25%"; // 綺麗に折り返して並べる
+      
+      // ボタンが押されたら送信してポップアップを消す
+      btn.onclick = () => {
+        sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo);
+        popup.style.display = "none";
+      };
+      
+      buttonsArea.appendChild(btn);
+    }
   }
+
+  // 準備ができたので画面に表示
+  popup.style.display = "flex";
 }
 
-window.onload = () => {
-  loadDictionary();
-};
-
-// 5. アガリ打点（基本点）の計算ロジック（切り上げ満貫対応）
+// 5. アガリ打点の計算ロジック
 function calculateScorePoints(han, fu, isOya, isTsumo) {
   let basePoint = 0;
-
-  // 満貫以上の判定
-  if (han >= 13) {
-    basePoint = 8000; // 役満（子32000 / 親48000）
-  } else if (han >= 11) {
-    basePoint = 6000; // 三倍満
-  } else if (han >= 8) {
-    basePoint = 4000; // 倍満
-  } else if (han >= 6) {
-    basePoint = 3000; // 跳満
-  } else if (han >= 5 || (han === 4 && fu >= 30) || (han === 3 && fu >= 60)) {
-    basePoint = 2000; // 満貫（切り上げ満貫含む）
-  } else {
-    // 通常の計算（符 × 2^(翻+2)）
+  if (han >= 13) basePoint = 8000; 
+  else if (han >= 11) basePoint = 6000; 
+  else if (han >= 8) basePoint = 4000; 
+  else if (han >= 6) basePoint = 3000; 
+  else if (han >= 5 || (han === 4 && fu >= 30) || (han === 3 && fu >= 60)) basePoint = 2000; 
+  else {
     basePoint = fu * Math.pow(2, han + 2);
-    if (basePoint > 2000) basePoint = 2000; // 念のため満貫打ち止め
+    if (basePoint > 2000) basePoint = 2000; 
   }
 
-  // アガリ打点の算出（親は1.5倍して10の位切り上げ、子はそのまま等）
-  // ※ここではシンプルに「合計の支払い点数」を算出します
   let totalScore = 0;
-  if (isOya) {
-    totalScore = Math.ceil((basePoint * 6) / 100) * 100;
-  } else {
-    totalScore = Math.ceil((basePoint * 4) / 100) * 100;
-  }
-
+  if (isOya) totalScore = Math.ceil((basePoint * 6) / 100) * 100;
+  else totalScore = Math.ceil((basePoint * 4) / 100) * 100;
   return totalScore;
 }
 
-// 6. GASへのデータ送信（POST処理）
+// 6. GASへのデータ送信と結果表示
 async function sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo) {
-  // アガリ打点を計算
   const scorePoint = calculateScorePoints(totalHan, fu, isOya, isTsumo);
   
-  log(`【送信データ準備】`);
-  log(`・確定役: ${yakuArray.join(", ")}`);
-  log(`・合計: ${totalHan}翻 ${fu}符`);
-  log(`・打点: ${scorePoint}点`);
+  // 送信中であることを画面上部に表示
+  showResultView(`送信しています...<br>${yakuArray.join(", ")}<br>${totalHan}翻 ${fu}符`, "#ffc107", "#000");
 
-  // 卓UIからアガリ者、放銃者を取得する想定（今回は仮データ）
   const matchRecord = {
     action: "recordMatch",
-    // matchData: [対局ID, 卓ID, 局数, 本場, 供託数, 結果, アガリ者, 放銃者, 合計翻数, アガリ打点, リーチ者]
     matchData: ["A_20260708_01", "A", 1, 0, 0, (isTsumo ? "ツモ" : "ロン"), "自分", "対面", totalHan, scorePoint, ""],
-    
-    // yakuData: 役履歴展開用のデータ配列
-    yakuData: yakuArray.map(yaku => ({
-      matchId: "A_20260708_01",
-      winner: "自分",
-      yaku: yaku
-    }))
+    yakuData: yakuArray.map(yaku => ({ matchId: "A_20260708_01", winner: "自分", yaku: yaku }))
   };
 
-  log(`サーバーへ送信しています...`);
-  
   try {
     const response = await fetch(CONFIG_GAS_URL, {
       method: "POST",
@@ -359,13 +350,40 @@ async function sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo) {
     const resultData = await response.json();
 
     if (resultData.result === "success") {
-      log(`<span style="color:green; font-weight:bold;">【登録完了！】スプレッドシートに記録されました。</span>`);
-      // TODO: ここで画面同期や親の移動処理へ繋ぐ
+      // 成功したら緑色で結果を3秒間表示して消す
+      showResultView(`【登録完了】<br>${totalHan}翻 ${fu}符<br><span style="font-size:24px;">${scorePoint}点</span>`, "#28a745", "#fff", 3000);
+      log("スプレッドシートへの記録が完了しました。");
     } else {
-      log(`<span style="color:red;">【エラー】記録に失敗しました: ${resultData.message}</span>`);
+      showResultView(`【登録エラー】`, "#dc3545", "#fff", 3000);
     }
   } catch (error) {
-    log(`<span style="color:red;">【通信エラー】GASに接続できません。</span>`);
+    showResultView(`【通信エラー】`, "#dc3545", "#fff", 3000);
+  }
+}
+
+// 結果確認ビュー（画面上部）をコントロールする補助関数
+function showResultView(htmlMessage, bgColor, textColor, hideAfterMs = null) {
+  const view = document.getElementById('resultView');
+  const textDiv = document.getElementById('resultText');
+  
+  textDiv.innerHTML = htmlMessage;
+  view.style.background = bgColor;
+  view.style.color = textColor;
+  view.style.display = "block";
+  
+  if (hideAfterMs) {
+    setTimeout(() => {
+      view.style.display = "none";
+    }, hideAfterMs);
+  }
+}
+
+// ログ出力用補助関数（そのまま）
+function log(message) {
+  const logArea = document.getElementById('logArea');
+  if(logArea) {
+    logArea.innerHTML += message + "<br>";
+    logArea.scrollTop = logArea.scrollHeight;
   }
 }
   </script>
