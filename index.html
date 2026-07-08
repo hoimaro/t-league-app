@@ -102,6 +102,8 @@
     let globalYakuArray = [];
     let globalIsKuiseagari = false;
     let isAddingMode = false;
+    let globalUnknownWord = ""; 
+    let globalAddedYaku = "";
   
     // ＝＝＝ 今回追加した設定（1の部分） ＝＝＝
     // 役名から基本翻数を引くためのマスタ定義（抜粋）
@@ -190,6 +192,7 @@ function processSpeech(text) {
   let isKuiseagari = false;
   let remainingText = normalizedText;
 
+  // ① 直接発声された「鳴きあり」を検知
   if (remainingText.includes("鳴きあり") || remainingText.includes("なきあり")) {
     isKuiseagari = true;
     remainingText = remainingText.replace(/鳴きあり|なきあり/g, "");
@@ -208,6 +211,12 @@ function processSpeech(text) {
     }
   }
 
+  // ② ▼今回の修正：辞書変換で合流した「鳴きあり」をここで検知して、確実にリストから消去する
+  if (extractedYaku.includes("鳴きあり")) {
+    isKuiseagari = true;
+    extractedYaku = extractedYaku.filter(yaku => yaku !== "鳴きあり");
+  }
+
   let unknownParts = remainingText.replace(/[、，,\s]+/g, "").trim();
   if (unknownParts.length === 1 && /^[ぁ-んァ-ヶ]$/.test(unknownParts)) unknownParts = "";
   
@@ -215,21 +224,19 @@ function processSpeech(text) {
     log(`<span style="color:red;">【警告】未登録の言葉が含まれています: 「${unknownParts}」</span>`);
   }
 
-  // ▼ 新機能：追加モードかどうかの判定と合体 ▼
+  // モードごとの合体処理
   if (isAddingMode) {
     globalYakuArray.push(...extractedYaku);
-    if (isKuiseagari) globalIsKuiseagari = true;
-    isAddingMode = false; // モード解除
+    if (isKuiseagari) globalIsKuiseagari = true; // ここで確実に記憶に焼き付ける
+    isAddingMode = false; 
     log("【追加処理】前回までの役と合体させました。");
   } else {
     globalYakuArray = extractedYaku;
     globalIsKuiseagari = isKuiseagari;
   }
 
-  // 同じ役を2回言ってしまった場合の重複を排除
+  // 重複削除とソート
   globalYakuArray = [...new Set(globalYakuArray)];
-
-  // 役の綺麗な表示順でソート（YAKU_ORDERを使用）
   globalYakuArray.sort((a, b) => {
     let indexA = YAKU_ORDER.indexOf(a);
     let indexB = YAKU_ORDER.indexOf(b);
@@ -238,32 +245,29 @@ function processSpeech(text) {
     return indexA - indexB;
   });
 
-log(`[現在の役リスト]: ${globalYakuArray.join(", ")}`);
+  log(`[現在の役リスト]: ${globalYakuArray.join(", ")}`);
   
+  // ツモ判定
   let isTsumo = globalYakuArray.includes("ツモ") || 
                 globalYakuArray.includes("嶺上開花") || 
-                globalYakuArray.includes("海底撈月");
+                globalYakuArray.includes("海底撈月") || 
+                globalYakuArray.includes("天和") || 
+                globalYakuArray.includes("地和");
   
-  // 第3引数を isTsumo 変数に変更して点数計算へ渡す
   calculateScore(globalYakuArray, globalIsKuiseagari, isTsumo, false);
 }
-  
+
 // 4. 合計翻数の計算とルート分岐判定
 function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
   log("【点数計算フェーズ開始】");
 
-  // ▼ 今回追加・修正：「鳴きあり」フラグの処理と、確定役リストからの除外
-  if (yakuArray.includes("鳴きあり")) {
-    isKuiseagari = true;
-    yakuArray = yakuArray.filter(yaku => yaku !== "鳴きあり");
-    globalYakuArray = globalYakuArray.filter(yaku => yaku !== "鳴きあり"); // 記録用データからも消す
-  }
+  // ※鳴きありの消去処理は上の processSpeech に移動したため、ここからは削除しました
 
   // 役満フィルター処理
   let yakumanList = yakuArray.filter(yaku => YAKU_HAN[yaku] === 13);
   if (yakumanList.length > 0) {
     yakuArray = yakumanList; 
-    globalYakuArray = yakumanList; // グローバル変数も上書き
+    globalYakuArray = yakumanList; 
     log(`<span style="color:#d32f2f; font-weight:bold;">【役満検知！】通常の役やドラをすべて無効化しました。</span>`);
   }
 
@@ -271,7 +275,7 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
   let hasPinfu = false;
   let hasChiitoitsu = false;
   let hasToitoiSanankou = false;
-  let isKuiseagariApplied = false; // ★食い下がりが実際に適用されたかの目印
+  let isKuiseagariApplied = false; 
 
   for (let yaku of yakuArray) {
     let han = YAKU_HAN[yaku] || 0; 
@@ -279,7 +283,7 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
     // 喰い下がりの処理
     if (isKuiseagari && KUISEAGARI_YAKU.includes(yaku)) {
       han -= 1;
-      isKuiseagariApplied = true; // 食い下がりが発動した！
+      isKuiseagariApplied = true; 
     }
     totalHan += han;
 
@@ -291,7 +295,6 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
   log(`最終計算翻数: ${totalHan}翻`);
 
   if (totalHan > 0) {
-    // 最後に isKuiseagariApplied（食い下がり発動の有無）をポップアップに渡す
     showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, isTsumo, isOya, yakuArray, isKuiseagariApplied);
   } else {
     log("<span style='color:red;'>エラー: 有効な役が抽出できませんでした</span>");
