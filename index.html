@@ -67,6 +67,22 @@
     <button id="micBtn" disabled>システムの準備中...</button>
   </div>
 
+  <div id="fuPopup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100; justify-content:center; align-items:center;">
+    <div style="background:#fff; padding:20px; border-radius:10px; width:90%; max-width:320px; text-align:center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+      <h3 style="margin-top:0; color:#333; font-size:18px;">符を選択してください</h3>
+      <p id="fuPopupInfo" style="font-size:14px; color:#666; margin-bottom:15px;"></p>
+      
+      <div id="fuButtonsArea" style="display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-bottom:15px;">
+        </div>
+      
+      <button onclick="document.getElementById('fuPopup').style.display='none'" style="background:#6c757d; color:#fff; padding:10px 20px; border:none; border-radius:5px;">キャンセル</button>
+    </div>
+  </div>
+
+  <div id="resultView" style="display:none; position:fixed; top:20px; left:50%; transform:translateX(-50%); color:#fff; padding:15px 20px; border-radius:8px; z-index:200; width:80%; max-width:300px; text-align:center; box-shadow:0 4px 6px rgba(0,0,0,0.3); font-weight:bold;">
+    <div id="resultText"></div>
+  </div>
+
   <div class="box-title">【デバッグ・認識結果ログ】</div>
   <div id="logArea">辞書データをダウンロードしています...<br></div>
 
