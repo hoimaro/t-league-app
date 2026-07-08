@@ -67,15 +67,23 @@
     <button id="micBtn" disabled>システムの準備中...</button>
   </div>
 
-  <div id="fuPopup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100; justify-content:center; align-items:center;">
+  <div id="confirmPopup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100; justify-content:center; align-items:center;">
     <div style="background:#fff; padding:20px; border-radius:10px; width:90%; max-width:320px; text-align:center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
-      <h3 style="margin-top:0; color:#333; font-size:18px;">符を選択してください</h3>
-      <p id="fuPopupInfo" style="font-size:14px; color:#666; margin-bottom:15px;"></p>
+      <h3 style="margin-top:0; color:#333; font-size:18px;">認識結果の確認</h3>
+      <p id="confirmPopupInfo" style="font-size:16px; color:#333; margin-bottom:15px; font-weight:bold;"></p>
       
-      <div id="fuButtonsArea" style="display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-bottom:15px;">
-        </div>
+      <!-- 符選択エリア (ルート2用) -->
+      <div id="fuButtonsArea" style="display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-bottom:15px;"></div>
       
-      <button onclick="document.getElementById('fuPopup').style.display='none'" style="background:#6c757d; color:#fff; padding:10px 20px; border:none; border-radius:5px;">キャンセル</button>
+      <!-- アクションエリア -->
+      <div style="display:flex; justify-content:space-between; gap:10px; margin-bottom:10px;">
+        <button id="btnAutoSubmit" style="display:none; flex:1; background:#28a745; color:#fff; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">このまま記録</button>
+      </div>
+      <div style="display:flex; justify-content:space-between; gap:10px; margin-bottom:10px;">
+        <button onclick="startAddVoice()" style="flex:1; background:#17a2b8; color:#fff; padding:10px; border:none; border-radius:5px; cursor:pointer;">🎤 追加</button>
+        <button onclick="startRetryVoice()" style="flex:1; background:#ffc107; color:#333; padding:10px; border:none; border-radius:5px; cursor:pointer;">🔄 やり直し</button>
+      </div>
+      <button onclick="document.getElementById('confirmPopup').style.display='none'" style="width:100%; background:#6c757d; color:#fff; padding:10px; border:none; border-radius:5px; cursor:pointer;">キャンセル</button>
     </div>
   </div>
 
@@ -91,7 +99,10 @@
     const CONFIG_GAS_URL = "https://script.google.com/macros/s/AKfycbxApVeyJSrYaWtUDyttPUbUdvMgs3OknGQ5ZuLz9AhdJxrxa3S3KQsgQK1VUJ6z6kI/exec"; 
     
     let dictionary = {};
-
+    let globalYakuArray = [];
+    let globalIsKuiseagari = false;
+    let isAddingMode = false;
+  
     // ＝＝＝ 今回追加した設定（1の部分） ＝＝＝
     // 役名から基本翻数を引くためのマスタ定義（抜粋）
     const YAKU_HAN = {
@@ -175,7 +186,7 @@ function processSpeech(text) {
   let normalizedText = text.replace(/[\s ]+/g, "");
   log(`[音声認識(補正後)]: ${normalizedText}`);
 
-  let yakuArray = [];
+  let extractedYaku = [];
   let isKuiseagari = false;
   let remainingText = normalizedText;
 
@@ -189,60 +200,66 @@ function processSpeech(text) {
   for (const key of sortedKeys) {
     if (remainingText.includes(key)) {
       let officialName = dictionary[key];
-      
       if (officialName !== "除外") {
         let splitYaku = officialName.split(/[、，,\s]+/);
-        yakuArray.push(...splitYaku);
+        extractedYaku.push(...splitYaku);
       }
       remainingText = remainingText.replace(new RegExp(key, 'g'), "");
     }
   }
 
   let unknownParts = remainingText.replace(/[、，,\s]+/g, "").trim();
-
-  if (unknownParts.length === 1 && /^[ぁ-んァ-ヶ]$/.test(unknownParts)) {
-    unknownParts = "";
-  }
-
+  if (unknownParts.length === 1 && /^[ぁ-んァ-ヶ]$/.test(unknownParts)) unknownParts = "";
+  
   if (unknownParts.length > 0) {
     log(`<span style="color:red;">【警告】未登録の言葉が含まれています: 「${unknownParts}」</span>`);
   }
-  
 
-  // ▼ 今回追加：抽出した役リストを麻雀の一般的な順番に並び替え
-  yakuArray.sort((a, b) => {
-  let indexA = YAKU_ORDER.indexOf(a);
-  let indexB = YAKU_ORDER.indexOf(b);
-  // リストに定義されていない役（未知の言葉）は一番後ろに回す
-  if (indexA === -1) indexA = 999;
-  if (indexB === -1) indexB = 999;
+  // ▼ 新機能：追加モードかどうかの判定と合体 ▼
+  if (isAddingMode) {
+    globalYakuArray.push(...extractedYaku);
+    if (isKuiseagari) globalIsKuiseagari = true;
+    isAddingMode = false; // モード解除
+    log("【追加処理】前回までの役と合体させました。");
+  } else {
+    globalYakuArray = extractedYaku;
+    globalIsKuiseagari = isKuiseagari;
+  }
+
+  // 同じ役を2回言ってしまった場合の重複を排除
+  globalYakuArray = [...new Set(globalYakuArray)];
+
+  // 役の綺麗な表示順でソート（YAKU_ORDERを使用）
+  globalYakuArray.sort((a, b) => {
+    let indexA = YAKU_ORDER.indexOf(a);
+    let indexB = YAKU_ORDER.indexOf(b);
+    if (indexA === -1) indexA = 999;
+    if (indexB === -1) indexB = 999;
     return indexA - indexB;
   });
 
-  // ＝＝（既存のまま）＝＝
-  log(`[抽出役リスト]: ${yakuArray.join(", ")}`);
-  log(`[鳴きあり判定]: ${isKuiseagari ? "適用 (1翻マイナス)" : "なし"}`);    
-  calculateScore(yakuArray, isKuiseagari, false, false);
+  log(`[現在の役リスト]: ${globalYakuArray.join(", ")}`);
+  
+  calculateScore(globalYakuArray, globalIsKuiseagari, false, false);
 }
 
 // 4. 合計翻数の計算とルート分岐判定
 function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
+  log("【点数計算フェーズ開始】");
+
+  // 役満フィルター処理
+  let yakumanList = yakuArray.filter(yaku => YAKU_HAN[yaku] === 13);
+  if (yakumanList.length > 0) {
+    yakuArray = yakumanList; 
+    globalYakuArray = yakumanList; // グローバル変数も上書き
+    log(`<span style="color:#d32f2f; font-weight:bold;">【役満検知！】通常の役やドラをすべて無効化しました。</span>`);
+  }
+
   let totalHan = 0;
   let hasPinfu = false;
   let hasChiitoitsu = false;
   let hasToitoiSanankou = false;
 
-  log("【点数計算フェーズ開始】");
-
-  // リストの中から「13翻（役満）」として登録されている役だけを抜き出す
-  let yakumanList = yakuArray.filter(yaku => YAKU_HAN[yaku] === 13);
-  
-  // もし役満が1つでも含まれていたら、役リストを役満のみに強制上書きする
-  if (yakumanList.length > 0) {
-    yakuArray = yakumanList; 
-    log(`<span style="color:#d32f2f; font-weight:bold;">【役満検知！】通常の役やドラをすべて無効化しました。</span>`);
-  }
-  
   for (let yaku of yakuArray) {
     let han = 0;
     if (yaku.includes("ドラ") || yaku.includes("赤")) {
@@ -262,81 +279,98 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
 
   log(`最終計算翻数: ${totalHan}翻`);
 
-  // ルート分岐の呼び出し（yakuArrayを一緒に渡すように修正）
-  if (totalHan >= 5 || hasPinfu || hasChiitoitsu || totalHan === 4) {
-    executeRoute1(totalHan, hasPinfu, hasChiitoitsu, isTsumo, isOya, yakuArray);
-  } else if (totalHan > 0) {
-    showFuPopup(totalHan, hasToitoiSanankou, yakuArray, isTsumo, isOya);
+  if (totalHan > 0) {
+    // 古いルート分岐を廃止し、すべて確認ポップアップへ送る
+    showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, isTsumo, isOya, yakuArray);
   } else {
     log("<span style='color:red;'>エラー: 有効な役が抽出できませんでした</span>");
   }
 }
 
-// ルート1の処理（ポップアップを出さずに即座に送信）
-function executeRoute1(totalHan, hasPinfu, hasChiitoitsu, isTsumo, isOya, yakuArray) {
-  let autoFu = 30; // 基本を30符とする
-  if (hasChiitoitsu) autoFu = 25;
-  if (hasPinfu && isTsumo) autoFu = 20;
-
-  sendMatchDataToGAS(yakuArray, totalHan, autoFu, isOya, isTsumo);
-}
-
-// ルート2のポップアップ処理（画面にUIを描画する）
-function showFuPopup(totalHan, hasToitoiSanankou, yakuArray, isTsumo, isOya) {
-  let maxFu = 70;
-  let defaultFu = 30;
-
-  const max2KoutsuYaku = ["混全帯幺九", "純全帯幺九", "三色同順", "一気通貫"];
-  let hasMax2Koutsu = yakuArray.some(yaku => max2KoutsuYaku.includes(yaku));
-  
-  if (hasToitoiSanankou) { maxFu = 110; defaultFu = 40; } 
-  else if (hasMax2Koutsu) { maxFu = 100; }
-
-  // HTMLの要素を取得して文字をセット
-  const popup = document.getElementById('fuPopup');
-  const infoText = document.getElementById('fuPopupInfo');
+// 統合された確認・アクションポップアップ
+function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, isTsumo, isOya, yakuArray) {
+  const popup = document.getElementById('confirmPopup');
+  const infoText = document.getElementById('confirmPopupInfo');
   const buttonsArea = document.getElementById('fuButtonsArea');
+  const btnAutoSubmit = document.getElementById('btnAutoSubmit');
   
-  infoText.innerHTML = `確定役: ${yakuArray.join(", ")}<br>計算翻数: <b>${totalHan}翻</b>`;
-  buttonsArea.innerHTML = ""; // ボタンエリアをリセット
+  infoText.innerHTML = `確定役: ${yakuArray.join(", ")}<br>計算翻数: <b style="color:#e91e63;">${totalHan}翻</b>`;
+  buttonsArea.innerHTML = ""; 
+  
+  // 自動計算可能な場合（ルート1相当）
+  if (totalHan >= 5 || hasPinfu || hasChiitoitsu || totalHan === 4) {
+    let autoFu = 30; 
+    if (hasChiitoitsu) autoFu = 25;
+    if (hasPinfu && isTsumo) autoFu = 20;
 
-  // 動的にボタンを生成して並べる
-  let availableFu = [30, 40, 50, 60, 70, 80, 90, 100, 110];
-  for (let fu of availableFu) {
-    if (fu <= maxFu) {
-      let btn = document.createElement("button");
-      btn.textContent = fu + "符";
-      
-      // デフォルトのボタンだけ色を変える
-      if (fu === defaultFu) {
-        btn.style.background = "#007bff";
-        btn.style.color = "#fff";
-        btn.style.border = "2px solid #0056b3";
-        btn.textContent = `★ ${fu}符`;
-      } else {
-        btn.style.background = "#f8f9fa";
-        btn.style.color = "#333";
-        btn.style.border = "1px solid #ccc";
+    btnAutoSubmit.style.display = "block";
+    btnAutoSubmit.textContent = `このまま記録 (${autoFu}符)`;
+    btnAutoSubmit.onclick = () => {
+      sendMatchDataToGAS(globalYakuArray, totalHan, autoFu, isOya, isTsumo);
+      popup.style.display = "none";
+    };
+  } 
+  // 符計算が必要な場合（ルート2相当）
+  else {
+    btnAutoSubmit.style.display = "none"; 
+    
+    let maxFu = 70;
+    let defaultFu = 30;
+    const max2KoutsuYaku = ["混全帯幺九", "純全帯幺九", "三色同順", "一気通貫"];
+    let hasMax2Koutsu = yakuArray.some(yaku => max2KoutsuYaku.includes(yaku));
+    
+    if (hasToitoiSanankou) { maxFu = 110; defaultFu = 40; } 
+    else if (hasMax2Koutsu) { maxFu = 100; }
+
+    let availableFu = [30, 40, 50, 60, 70, 80, 90, 100, 110];
+    for (let fu of availableFu) {
+      if (fu <= maxFu) {
+        let btn = document.createElement("button");
+        btn.textContent = fu + "符";
+        if (fu === defaultFu) {
+          btn.style.background = "#007bff";
+          btn.style.color = "#fff";
+          btn.style.border = "2px solid #0056b3";
+          btn.textContent = `★ ${fu}符`;
+        } else {
+          btn.style.background = "#f8f9fa";
+          btn.style.color = "#333";
+          btn.style.border = "1px solid #ccc";
+        }
+        btn.style.padding = "10px 15px";
+        btn.style.borderRadius = "5px";
+        btn.style.fontSize = "16px";
+        btn.style.cursor = "pointer";
+        btn.style.flex = "1 1 25%";
+        
+        btn.onclick = () => {
+          sendMatchDataToGAS(globalYakuArray, totalHan, fu, isOya, isTsumo);
+          popup.style.display = "none";
+        };
+        buttonsArea.appendChild(btn);
       }
-      
-      btn.style.padding = "10px 15px";
-      btn.style.borderRadius = "5px";
-      btn.style.fontSize = "16px";
-      btn.style.cursor = "pointer";
-      btn.style.flex = "1 1 25%"; // 綺麗に折り返して並べる
-      
-      // ボタンが押されたら送信してポップアップを消す
-      btn.onclick = () => {
-        sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo);
-        popup.style.display = "none";
-      };
-      
-      buttonsArea.appendChild(btn);
     }
   }
 
-  // 準備ができたので画面に表示
   popup.style.display = "flex";
+}
+
+// 【新規追加】「追加」ボタンの処理
+function startAddVoice() {
+  isAddingMode = true;
+  document.getElementById('confirmPopup').style.display = "none";
+  log("🎤 【追加】さらに役を発声してください...");
+  document.getElementById('micBtn').click(); // マイクを自動起動
+}
+
+// 【新規追加】「やり直し」ボタンの処理
+function startRetryVoice() {
+  isAddingMode = false;
+  globalYakuArray = []; // 今までの役をリセット
+  globalIsKuiseagari = false;
+  document.getElementById('confirmPopup').style.display = "none";
+  log("🔄 【やり直し】もう一度すべての役を発声してください...");
+  document.getElementById('micBtn').click(); // マイクを自動起動
 }
 
 // 5. アガリ打点の計算ロジック
