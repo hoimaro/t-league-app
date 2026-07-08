@@ -131,30 +131,53 @@ const YAKU_ORDER = [
 // 喰い下がり対象の役リスト
 const KUISEAGARI_YAKU = ["混一色", "三色同順", "一気通貫", "混全帯么九", "純全帯么九", "清一色"];
 
-// 1. 辞書データの読み込み（エラー検知を強化）
+// 1. 辞書データの読み込み（爆速キャッシュ機能付き）
 async function loadDictionary() {
   const micBtn = document.getElementById('micBtn');
+  
+  // ▼ステップ1：スマホ内に保存された前回の辞書（キャッシュ）があれば、即座に読み込む
+  const cachedDict = localStorage.getItem('mahjongDictionary');
+  if (cachedDict) {
+    dictionary = JSON.parse(cachedDict);
+    if(micBtn) {
+      micBtn.disabled = false;
+      micBtn.textContent = "🎤 アガリ役を音声入力";
+    }
+    log("保存された辞書を読み込みました（高速起動）。裏で最新版を同期します...");
+    initSpeechRecognition(); // すぐに使えるようにする
+  }
+
+  // ▼ステップ2：裏でGASと通信し、最新の辞書データをダウンロードする
   try {
     const response = await fetch(CONFIG_GAS_URL + "?action=getDictionary");
     const resultData = await response.json();
 
     if (resultData.result === "success") {
       dictionary = resultData.dictionary;
-      if(micBtn) {
-        micBtn.disabled = false;
-        micBtn.textContent = "🎤 アガリ役を音声入力";
+      // 最新の辞書をスマホ（ブラウザ）に保存する
+      localStorage.setItem('mahjongDictionary', JSON.stringify(dictionary));
+      
+      if (!cachedDict) {
+        // 初回起動時（キャッシュが無い時）は、ここでボタンを有効化する
+        if(micBtn) {
+          micBtn.disabled = false;
+          micBtn.textContent = "🎤 アガリ役を音声入力";
+        }
+        log("初回辞書の読み込みが完了しました。");
+        initSpeechRecognition();
+      } else {
+        log("最新の辞書データの同期が完了しました。");
       }
-      log("辞書の読み込みが完了しました。");
-      initSpeechRecognition();
     } else {
-      // GASは応答したがエラーを返した場合
-      log(`<span style="color:red;">【エラー】GASからエラーが返されました。GASのコードを確認してください。</span>`);
-      if(micBtn) micBtn.textContent = "エラーが発生しました";
+      if (!cachedDict) log(`<span style="color:red;">【エラー】GASからエラーが返されました。</span>`);
     }
   } catch (error) {
-    // URL間違いやデプロイ忘れによる通信失敗
-    log(`<span style="color:red;">【通信エラー】辞書が取得できません。GASのURLかデプロイ状況を確認してください。</span>`);
-    if(micBtn) micBtn.textContent = "通信エラー";
+    if (!cachedDict) {
+      log(`<span style="color:red;">【通信エラー】辞書が取得できません。</span>`);
+      if(micBtn) micBtn.textContent = "通信エラー";
+    } else {
+      log("<span style='color:orange;'>最新辞書の同期に失敗しましたが、保存された辞書で動作します。</span>");
+    }
   }
 }
 
