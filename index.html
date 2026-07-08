@@ -36,7 +36,7 @@
     /* コントロール・ログエリア */
     .controls { margin-top: 20px; }
     button { padding: 12px 24px; font-size: 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
-    #micBtn { background: #007bff; color: white; width: 200px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    #micBtn { background: #007bff; color: white; width: 260px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     #micBtn:disabled { background: #999; cursor: not-allowed; }
     
     #logArea { 
@@ -109,8 +109,8 @@
       "リーチ": 1, "ツモ": 1, "一発": 1, "海底撈月": 1, "河底撈魚": 1, "嶺上開花": 1, "槍槓": 1, "平和": 1, "断么九": 1, "一盃口": 1,
       "役牌": 1, "役牌2": 2, "役牌3": 3, "役牌4": 4,
       "ドラ": 1, "ドラ2": 2, "ドラ3": 3, "ドラ4": 4, "ドラ5": 5,"ドラ6": 6, "ドラ7": 7, "ドラ8": 8, "ドラ9": 9, "ドラ10": 10, 
-      "ダブルリーチ": 2, "三槓子": 2, "三色同順": 2, "三色同刻": 2, "一気通貫": 2, "混全帯幺九": 2, "七対子": 2, "対々和": 2, "三暗刻": 2, "混老頭": 2,
-      "混一色": 3, "純全帯幺九": 3, "二盃口": 3,
+      "ダブルリーチ": 2, "三槓子": 2, "三色同順": 2, "三色同刻": 2, "一気通貫": 2, "混全帯么九": 2, "七対子": 2, "対々和": 2, "三暗刻": 2, "混老頭": 2,
+      "混一色": 3, "純全帯么九": 3, "二盃口": 3,
       "小三元": 4,
       "清一色": 6,
       "四暗刻": 13, "清老頭": 13, "大三元": 13, "小四喜": 13, "大四喜": 13, "緑一色": 13, "九蓮宝燈": 13, "国士無双": 13, "天和": 13, "地和": 13,
@@ -120,12 +120,12 @@
     const YAKU_ORDER = [
       "天和", "地和", "四暗刻", "国士無双", "大三元", "小四喜", "大四喜", "字一色", "緑一色", "清老頭", "九蓮宝燈", "四槓子", // 役満を一番上
       "リーチ", "ダブルリーチ", "一発", "ツモ", "海底撈月", "河底撈魚", "嶺上開花", "槍槓", "役牌", "役牌2", "役牌3", "役牌4",
-      "平和", "断么九", "一盃口", "三色同順", "一気通貫", "混全帯幺九", "七対子", "対々和", "三暗刻", "混老頭", "三槓子",
-      "二盃口", "純全帯幺九", "混一色", "小三元", "清一色",
+      "平和", "断么九", "一盃口", "三色同順", "一気通貫", "混全帯么九", "七対子", "対々和", "三暗刻", "混老頭", "三槓子",
+      "二盃口", "純全帯么九", "混一色", "小三元", "清一色",
       "ドラ", "ドラ2", "ドラ3", "ドラ4", "ドラ5", "ドラ6", "ドラ7", "ドラ8", "ドラ9", "ドラ10" // ドラ系は一番下
     ];
     // 喰い下がり（鳴きあり）対象の役リスト
-    const KUISEAGARI_YAKU = ["混一色", "三色同順", "一気通貫", "混全帯幺九", "純全帯幺九", "清一色"];
+    const KUISEAGARI_YAKU = ["混一色", "三色同順", "一気通貫", "混全帯么九", "純全帯么九", "清一色"];
     // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
 
     // 1. 辞書データの読み込み
@@ -265,14 +265,9 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
   let hasToitoiSanankou = false;
 
   for (let yaku of yakuArray) {
-    let han = 0;
-    if (yaku.includes("ドラ") || yaku.includes("赤")) {
-      let match = yaku.match(/\d+/);
-      han = match ? parseInt(match[0], 10) : 1;
-    } else {
-      han = YAKU_HAN[yaku] || 0; 
-    }
+    let han = YAKU_HAN[yaku] || 0; 
     
+    // 喰い下がりの処理
     if (isKuiseagari && KUISEAGARI_YAKU.includes(yaku)) han -= 1;
     totalHan += han;
 
@@ -320,7 +315,7 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
     
     let maxFu = 70;
     let defaultFu = 30;
-    const max2KoutsuYaku = ["混全帯幺九", "純全帯幺九", "三色同順", "一気通貫"];
+    const max2KoutsuYaku = ["混全帯么九", "純全帯么九", "三色同順", "一気通貫"];
     let hasMax2Koutsu = yakuArray.some(yaku => max2KoutsuYaku.includes(yaku));
     
     if (hasToitoiSanankou) { maxFu = 110; defaultFu = 40; } 
