@@ -238,11 +238,15 @@ function processSpeech(text) {
     return indexA - indexB;
   });
 
-  log(`[現在の役リスト]: ${globalYakuArray.join(", ")}`);
+log(`[現在の役リスト]: ${globalYakuArray.join(", ")}`);
   
-  calculateScore(globalYakuArray, globalIsKuiseagari, false, false);
+  let isTsumo = globalYakuArray.includes("ツモ") || 
+                globalYakuArray.includes("嶺上開花") || 
+                globalYakuArray.includes("海底撈月");
+  
+  // 第3引数を isTsumo 変数に変更して点数計算へ渡す
+  calculateScore(globalYakuArray, globalIsKuiseagari, isTsumo, false);
 }
-
 // 4. 合計翻数の計算とルート分岐判定
 function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
   log("【点数計算フェーズ開始】");
@@ -373,9 +377,11 @@ function startRetryVoice() {
   document.getElementById('micBtn').click(); // マイクを自動起動
 }
 
-// 5. アガリ打点の計算ロジック
+// 5. アガリ打点の計算ロジック（ツモ表示テキストの生成を追加）
 function calculateScorePoints(han, fu, isOya, isTsumo) {
   let basePoint = 0;
+  
+  // 満貫以上の判定
   if (han >= 13) basePoint = 8000; 
   else if (han >= 11) basePoint = 6000; 
   else if (han >= 8) basePoint = 4000; 
@@ -387,21 +393,49 @@ function calculateScorePoints(han, fu, isOya, isTsumo) {
   }
 
   let totalScore = 0;
-  if (isOya) totalScore = Math.ceil((basePoint * 6) / 100) * 100;
-  else totalScore = Math.ceil((basePoint * 4) / 100) * 100;
-  return totalScore;
+  let displayText = ""; // 画面表示用の文字列
+  
+  if (isTsumo) {
+    // 【ツモ上がりの場合】
+    if (isOya) {
+      // 親のツモ
+      let koPay = Math.ceil((basePoint * 2) / 100) * 100;
+      totalScore = koPay * 3;
+      displayText = `${koPay}オール`; // 例：4000オール
+    } else {
+      // 子のツモ
+      let oyaPay = Math.ceil((basePoint * 2) / 100) * 100;
+      let koPay = Math.ceil((basePoint * 1) / 100) * 100;
+      totalScore = oyaPay + (koPay * 2);
+      displayText = `${koPay} / ${oyaPay}`; // 例：1000 / 2000
+    }
+  } else {
+    // 【ロン上がりの場合】
+    if (isOya) {
+      totalScore = Math.ceil((basePoint * 6) / 100) * 100;
+    } else {
+      totalScore = Math.ceil((basePoint * 4) / 100) * 100;
+    }
+    displayText = `${totalScore}点`; // 例：3900点
+  }
+
+  // 合計点（GAS用）と、表示テキスト（画面用）の両方を返す
+  return { total: totalScore, text: displayText };
 }
 
 // 6. GASへのデータ送信と結果表示
 async function sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo) {
-  const scorePoint = calculateScorePoints(totalHan, fu, isOya, isTsumo);
+  // 先ほどの関数から、合計点と表示テキストの両方を受け取る
+  const scoreResult = calculateScorePoints(totalHan, fu, isOya, isTsumo);
+  const scorePoint = scoreResult.total; // スプレッドシートに送る合計点
+  const scoreText = scoreResult.text;   // 画面に表示する「1000/2000」など
   
   // 送信中であることを画面上部に表示
   showResultView(`送信しています...<br>${yakuArray.join(", ")}<br>${totalHan}翻 ${fu}符`, "#ffc107", "#000");
 
   const matchRecord = {
     action: "recordMatch",
-    matchData: ["A_20260708_01", "A", 1, 0, 0, (isTsumo ? "ツモ" : "ロン"), "自分", "対面", totalHan, scorePoint, ""],
+    matchData: ["A_20260708_01", "A", 1, 0, 0, (isTsumo ? "ツモ" : "ロン"), "自分", "対面", totalHan, scorePoint, ""], // 送るデータはscorePoint（合計点）
     yakuData: yakuArray.map(yaku => ({ matchId: "A_20260708_01", winner: "自分", yaku: yaku }))
   };
 
@@ -413,8 +447,8 @@ async function sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo) {
     const resultData = await response.json();
 
     if (resultData.result === "success") {
-      // 成功したら緑色で結果を3秒間表示して消す
-      showResultView(`【登録完了】<br>${totalHan}翻 ${fu}符<br><span style="font-size:24px;">${scorePoint}点</span>`, "#28a745", "#fff", 3000);
+      // 成功したら画面には scoreText（分割表示）を出す
+      showResultView(`【登録完了】<br>${totalHan}翻 ${fu}符<br><span style="font-size:24px;">${scoreText}</span>`, "#28a745", "#fff", 3000);
       log("スプレッドシートへの記録が完了しました。");
     } else {
       showResultView(`【登録エラー】`, "#dc3545", "#fff", 3000);
