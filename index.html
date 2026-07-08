@@ -252,9 +252,11 @@ log(`[現在の役リスト]: ${globalYakuArray.join(", ")}`);
 function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
   log("【点数計算フェーズ開始】");
 
-  // ▼ 今回追加：役リストに「鳴きあり」が入っていれば確実に食い下がりを適用する
+  // ▼ 今回追加・修正：「鳴きあり」フラグの処理と、確定役リストからの除外
   if (yakuArray.includes("鳴きあり")) {
     isKuiseagari = true;
+    yakuArray = yakuArray.filter(yaku => yaku !== "鳴きあり");
+    globalYakuArray = globalYakuArray.filter(yaku => yaku !== "鳴きあり"); // 記録用データからも消す
   }
 
   // 役満フィルター処理
@@ -269,6 +271,7 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
   let hasPinfu = false;
   let hasChiitoitsu = false;
   let hasToitoiSanankou = false;
+  let isKuiseagariApplied = false; // ★食い下がりが実際に適用されたかの目印
 
   for (let yaku of yakuArray) {
     let han = YAKU_HAN[yaku] || 0; 
@@ -276,6 +279,7 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
     // 喰い下がりの処理
     if (isKuiseagari && KUISEAGARI_YAKU.includes(yaku)) {
       han -= 1;
+      isKuiseagariApplied = true; // 食い下がりが発動した！
     }
     totalHan += han;
 
@@ -287,20 +291,28 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
   log(`最終計算翻数: ${totalHan}翻`);
 
   if (totalHan > 0) {
-    showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, isTsumo, isOya, yakuArray);
+    // 最後に isKuiseagariApplied（食い下がり発動の有無）をポップアップに渡す
+    showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, isTsumo, isOya, yakuArray, isKuiseagariApplied);
   } else {
     log("<span style='color:red;'>エラー: 有効な役が抽出できませんでした</span>");
   }
 }
 
 // 統合された確認・アクションポップアップ
-function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, isTsumo, isOya, yakuArray) {
+function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, isTsumo, isOya, yakuArray, isKuiseagariApplied) {
   const popup = document.getElementById('confirmPopup');
   const infoText = document.getElementById('confirmPopupInfo');
   const buttonsArea = document.getElementById('fuButtonsArea');
   const btnAutoSubmit = document.getElementById('btnAutoSubmit');
   
-  infoText.innerHTML = `確定役: ${yakuArray.join(", ")}<br>計算翻数: <b style="color:#e91e63;">${totalHan}翻</b>`;
+  // ▼ 今回追加：食い下がりだった場合に文字を付け足す
+  let hanText = `${totalHan}翻`;
+  if (isKuiseagariApplied) {
+    hanText += `<span style="font-size:14px; color:#555;"> (食い下がり)</span>`;
+  }
+  
+  // 画面のテキストを組み立てる
+  infoText.innerHTML = `確定役: ${yakuArray.join(", ")}<br>計算翻数: <b style="color:#e91e63;">${hanText}</b>`;
   buttonsArea.innerHTML = ""; 
   
   // 自動計算可能な場合（ルート1相当）
@@ -322,7 +334,7 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
     
     let maxFu = 70;
     let defaultFu = 30;
-    const max2KoutsuYaku = ["混全帯么九", "純全帯么九", "三色同順", "一気通貫"];
+    const max2KoutsuYaku = ["混全帯幺九", "純全帯幺九", "三色同順", "一気通貫", "混全帯么九", "純全帯么九"];
     let hasMax2Koutsu = yakuArray.some(yaku => max2KoutsuYaku.includes(yaku));
     
     if (hasToitoiSanankou) { maxFu = 110; defaultFu = 40; } 
