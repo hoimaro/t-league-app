@@ -138,14 +138,50 @@
     let dynamicDictionary = {};
     let sortedKeys = [];
 
+// ▼ 今回書き換えるプレビュー用関数 ▼
     function applyDictionary(text) {
-      let convertedText = text;
-      for (const key of sortedKeys) {
-        const regex = new RegExp(key, "g");
-        convertedText = convertedText.replace(regex, dynamicDictionary[key]);
+      // 実際のアプリ(index.html)と全く同じ抽出ロジックでプレビューする
+      let normalizedText = text.replace(/[\s ]+/g, "");
+      let extractedYaku = [];
+      let remainingText = normalizedText;
+
+      // 鳴きあり判定
+      if (remainingText.includes("鳴きあり") || remainingText.includes("なきあり")) {
+        extractedYaku.push("鳴きあり"); 
+        remainingText = remainingText.replace(/鳴きあり|なきあり/g, "");
       }
-      return convertedText;
+
+      // 長い順にソートされた辞書でマッチング
+      for (const key of sortedKeys) {
+        if (remainingText.includes(key)) {
+          let officialName = dynamicDictionary[key];
+          if (officialName !== "除外") {
+            // カンマ区切りの複数の役を展開してリストに追加
+            let splitYaku = officialName.split(/[、，,\s]+/);
+            extractedYaku.push(...splitYaku);
+          }
+          // 一度抽出した言葉は元のテキストから消去する（再変換バグ防止）
+          remainingText = remainingText.replace(new RegExp(key, 'g'), "");
+        }
+      }
+
+      // 抽出された役の重複を削除
+      extractedYaku = [...new Set(extractedYaku)];
+
+      // 辞書に無かった未知の言葉をあぶり出す
+      let unknownParts = remainingText.replace(/[、，,\s]+/g, "").trim();
+      if (unknownParts.length === 1 && /^[ぁ-んァ-ヶ]$/.test(unknownParts)) {
+        unknownParts = "";
+      }
+
+      // 画面表示用に文字を組み立てる
+      let resultStr = extractedYaku.join(", ");
+      if (unknownParts.length > 0) {
+        resultStr += `\n(⚠️未登録の言葉: ${unknownParts})`;
+      }
+      return resultStr || "（役が抽出されませんでした）";
     }
+    
 
     // 最初に既存の辞書を読み込む
     async function loadDictionary() {
