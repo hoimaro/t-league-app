@@ -234,6 +234,15 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
 
   log("【点数計算フェーズ開始】");
 
+  // リストの中から「13翻（役満）」として登録されている役だけを抜き出す
+  let yakumanList = yakuArray.filter(yaku => YAKU_HAN[yaku] === 13);
+  
+  // もし役満が1つでも含まれていたら、役リストを役満のみに強制上書きする
+  if (yakumanList.length > 0) {
+    yakuArray = yakumanList; 
+    log(`<span style="color:#d32f2f; font-weight:bold;">【役満検知！】通常の役やドラをすべて無効化しました。</span>`);
+  }
+  
   for (let yaku of yakuArray) {
     let han = 0;
     if (yaku.includes("ドラ") || yaku.includes("赤")) {
