@@ -96,58 +96,65 @@
 
 <script>
     // 先ほどデプロイした新しいGASのWebアプリURLに書き換えてください
-    const CONFIG_GAS_URL = "https://script.google.com/macros/s/AKfycbxApVeyJSrYaWtUDyttPUbUdvMgs3OknGQ5ZuLz9AhdJxrxa3S3KQsgQK1VUJ6z6kI/exec"; 
-    
-    let dictionary = {};
-    let globalYakuArray = [];
-    let globalIsKuiseagari = false;
-    let isAddingMode = false;
-    let globalUnknownWord = ""; 
-    let globalAddedYaku = "";
-  
-    // ＝＝＝ 今回追加した設定（1の部分） ＝＝＝
-    // 役名から基本翻数を引くためのマスタ定義（抜粋）
-    const YAKU_HAN = {
-      "リーチ": 1, "ツモ": 1, "一発": 1, "海底撈月": 1, "河底撈魚": 1, "嶺上開花": 1, "槍槓": 1, "平和": 1, "断么九": 1, "一盃口": 1,
-      "役牌": 1, "役牌2": 2, "役牌3": 3, "役牌4": 4,
-      "ドラ": 1, "ドラ2": 2, "ドラ3": 3, "ドラ4": 4, "ドラ5": 5,"ドラ6": 6, "ドラ7": 7, "ドラ8": 8, "ドラ9": 9, "ドラ10": 10, 
-      "ダブルリーチ": 2, "三槓子": 2, "三色同順": 2, "三色同刻": 2, "一気通貫": 2, "混全帯么九": 2, "七対子": 2, "対々和": 2, "三暗刻": 2, "混老頭": 2,
-      "混一色": 3, "純全帯么九": 3, "二盃口": 3,
-      "小三元": 4,
-      "清一色": 6,
-      "四暗刻": 13, "清老頭": 13, "大三元": 13, "小四喜": 13, "大四喜": 13, "緑一色": 13, "九蓮宝燈": 13, "国士無双": 13, "天和": 13, "地和": 13,
-      "字一色": 13, "四槓子": 13
-    };
-    // ▼ 今回追加：役の綺麗な表示順（上に書いたものほど先に表示される）
-    const YAKU_ORDER = [
-      "天和", "地和", "四暗刻", "国士無双", "大三元", "小四喜", "大四喜", "字一色", "緑一色", "清老頭", "九蓮宝燈", "四槓子", // 役満を一番上
-      "リーチ", "ダブルリーチ", "一発", "ツモ", "海底撈月", "河底撈魚", "嶺上開花", "槍槓", "役牌", "役牌2", "役牌3", "役牌4",
-      "平和", "断么九", "一盃口", "三色同順", "一気通貫", "混全帯么九", "七対子", "対々和", "三暗刻", "混老頭", "三槓子",
-      "二盃口", "純全帯么九", "混一色", "小三元", "清一色",
-      "ドラ", "ドラ2", "ドラ3", "ドラ4", "ドラ5", "ドラ6", "ドラ7", "ドラ8", "ドラ9", "ドラ10" // ドラ系は一番下
-    ];
-    // 喰い下がり（鳴きあり）対象の役リスト
-    const KUISEAGARI_YAKU = ["混一色", "三色同順", "一気通貫", "混全帯么九", "純全帯么九", "清一色"];
-    // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+// 先ほどデプロイした新しいGASのWebアプリURLに書き換えてください
+const CONFIG_GAS_URL = "https://script.google.com/macros/s/AKfycbxApVeyJSrYaWtUDyttPUbUdvMgs3OknGQ5ZuLz9AhdJxrxa3S3KQsgQK1VUJ6z6kI/exec"; 
 
-    // 1. 辞書データの読み込み
+let dictionary = {};
+let globalYakuArray = [];
+let globalIsKuiseagari = false;
+let isAddingMode = false;
+let globalUnknownWord = ""; 
+let globalAddedYaku = "";
+
+// 役名から基本翻数を引くためのマスタ定義（抜粋）
+const YAKU_HAN = {
+  "リーチ": 1, "ツモ": 1, "一発": 1, "海底撈月": 1, "河底撈魚": 1, "嶺上開花": 1, "槍槓": 1, "平和": 1, "断么九": 1, "一盃口": 1,
+  "役牌": 1, "役牌2": 2, "役牌3": 3, "役牌4": 4,
+  "ドラ": 1, "ドラ2": 2, "ドラ3": 3, "ドラ4": 4, "ドラ5": 5,"ドラ6": 6, "ドラ7": 7, "ドラ8": 8, "ドラ9": 9, "ドラ10": 10, 
+  "ダブルリーチ": 2, "三槓子": 2, "三色同順": 2, "三色同刻": 2, "一気通貫": 2, "混全帯么九": 2, "七対子": 2, "対々和": 2, "三暗刻": 2, "混老頭": 2,
+  "混一色": 3, "純全帯么九": 3, "二盃口": 3,
+  "小三元": 4,
+  "清一色": 6,
+  "四暗刻": 13, "清老頭": 13, "大三元": 13, "小四喜": 13, "大四喜": 13, "緑一色": 13, "九蓮宝燈": 13, "国士無双": 13, "天和": 13, "地和": 13,
+  "字一色": 13, "四槓子": 13
+};
+
+// 役の綺麗な表示順
+const YAKU_ORDER = [
+  "天和", "地和", "四暗刻", "国士無双", "大三元", "小四喜", "大四喜", "字一色", "緑一色", "清老頭", "九蓮宝燈", "四槓子",
+  "リーチ", "ダブルリーチ", "一発", "ツモ", "海底撈月", "河底撈魚", "嶺上開花", "槍槓", "役牌", "役牌2", "役牌3", "役牌4",
+  "平和", "断么九", "一盃口", "三色同順", "一気通貫", "混全帯么九", "七対子", "対々和", "三暗刻", "混老頭", "三槓子",
+  "二盃口", "純全帯么九", "混一色", "小三元", "清一色",
+  "ドラ", "ドラ2", "ドラ3", "ドラ4", "ドラ5", "ドラ6", "ドラ7", "ドラ8", "ドラ9", "ドラ10"
+];
+
+// 喰い下がり対象の役リスト
+const KUISEAGARI_YAKU = ["混一色", "三色同順", "一気通貫", "混全帯么九", "純全帯么九", "清一色"];
+
+// 1. 辞書データの読み込み（エラー検知を強化）
 async function loadDictionary() {
+  const micBtn = document.getElementById('micBtn');
   try {
     const response = await fetch(CONFIG_GAS_URL + "?action=getDictionary");
     const resultData = await response.json();
 
     if (resultData.result === "success") {
       dictionary = resultData.dictionary;
-      const micBtn = document.getElementById('micBtn');
       if(micBtn) {
         micBtn.disabled = false;
         micBtn.textContent = "🎤 アガリ役を音声入力";
       }
       log("辞書の読み込みが完了しました。");
       initSpeechRecognition();
+    } else {
+      // GASは応答したがエラーを返した場合
+      log(`<span style="color:red;">【エラー】GASからエラーが返されました。GASのコードを確認してください。</span>`);
+      if(micBtn) micBtn.textContent = "エラーが発生しました";
     }
   } catch (error) {
-    log("通信エラー: 辞書が取得できません。URLを確認してください。");
+    // URL間違いやデプロイ忘れによる通信失敗
+    log(`<span style="color:red;">【通信エラー】辞書が取得できません。GASのURLかデプロイ状況を確認してください。</span>`);
+    if(micBtn) micBtn.textContent = "通信エラー";
   }
 }
 
@@ -222,13 +229,12 @@ function processSpeech(text) {
     log(`<span style="color:red;">【警告】未登録の言葉が含まれています: 「${unknownParts}」</span>`);
   }
 
-  // ▼ 学習ロジック（ここから）▼
+  // ▼ 学習ロジック ▼
   if (isAddingMode) {
-    // 提案通りの安全装置：追加された役が「1つだけ」の時のみ、正式名称候補として記憶する
     if (extractedYaku.length === 1) {
       globalAddedYaku = extractedYaku[0];
     } else {
-      globalAddedYaku = ""; // 複数ある場合は学習キャンセル
+      globalAddedYaku = ""; 
     }
     
     globalYakuArray.push(...extractedYaku);
@@ -239,15 +245,13 @@ function processSpeech(text) {
     globalYakuArray = extractedYaku;
     globalIsKuiseagari = isKuiseagari;
     
-    // 初回発声で未登録の言葉があったら記憶する
     if (unknownParts) {
       globalUnknownWord = unknownParts;
     } else {
       globalUnknownWord = "";
     }
-    globalAddedYaku = ""; // 毎回リセット
+    globalAddedYaku = ""; 
   }
-  // ▲ 学習ロジック（ここまで）▲
 
   globalYakuArray = [...new Set(globalYakuArray)];
   globalYakuArray.sort((a, b) => {
@@ -269,9 +273,6 @@ function processSpeech(text) {
 function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
   log("【点数計算フェーズ開始】");
 
-  // ※鳴きありの消去処理は上の processSpeech に移動したため、ここからは削除しました
-
-  // 役満フィルター処理
   let yakumanList = yakuArray.filter(yaku => YAKU_HAN[yaku] === 13);
   if (yakumanList.length > 0) {
     yakuArray = yakumanList; 
@@ -288,7 +289,6 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
   for (let yaku of yakuArray) {
     let han = YAKU_HAN[yaku] || 0; 
     
-    // 喰い下がりの処理
     if (isKuiseagari && KUISEAGARI_YAKU.includes(yaku)) {
       han -= 1;
       isKuiseagariApplied = true; 
@@ -316,17 +316,14 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
   const buttonsArea = document.getElementById('fuButtonsArea');
   const btnAutoSubmit = document.getElementById('btnAutoSubmit');
   
-  // ▼ 今回追加：食い下がりだった場合に文字を付け足す
   let hanText = `${totalHan}翻`;
   if (isKuiseagariApplied) {
     hanText += `<span style="font-size:14px; color:#555;"> (食い下がり)</span>`;
   }
   
-  // 画面のテキストを組み立てる
   infoText.innerHTML = `確定役: ${yakuArray.join(", ")}<br>計算翻数: <b style="color:#e91e63;">${hanText}</b>`;
   buttonsArea.innerHTML = ""; 
   
-  // 自動計算可能な場合（ルート1相当）
   if (totalHan >= 5 || hasPinfu || hasChiitoitsu || totalHan === 4) {
     let autoFu = 30; 
     if (hasChiitoitsu) autoFu = 25;
@@ -338,14 +335,12 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
       sendMatchDataToGAS(globalYakuArray, totalHan, autoFu, isOya, isTsumo);
       popup.style.display = "none";
     };
-  } 
-  // 符計算が必要な場合（ルート2相当）
-  else {
+  } else {
     btnAutoSubmit.style.display = "none"; 
     
     let maxFu = 70;
     let defaultFu = 30;
-    const max2KoutsuYaku = ["混全帯幺九", "純全帯幺九", "三色同順", "一気通貫", "混全帯么九", "純全帯么九"];
+    const max2KoutsuYaku = ["混全帯么九", "純全帯么九", "三色同順", "一気通貫"];
     let hasMax2Koutsu = yakuArray.some(yaku => max2KoutsuYaku.includes(yaku));
     
     if (hasToitoiSanankou) { maxFu = 110; defaultFu = 40; } 
@@ -380,25 +375,21 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
       }
     }
   }
-
   popup.style.display = "flex";
 }
 
-// 【新規追加】「追加」ボタンの処理
 function startAddVoice() {
   isAddingMode = true;
   document.getElementById('confirmPopup').style.display = "none";
   log("🎤 【追加】さらに役を発声してください...");
-  document.getElementById('micBtn').click(); // マイクを自動起動
+  document.getElementById('micBtn').click(); 
 }
 
-// やり直しボタンの処理
 function startRetryVoice() {
   isAddingMode = false;
   globalYakuArray = []; 
   globalIsKuiseagari = false;
   
-  // ▼ 今回追加：やり直した場合は学習データを白紙に戻す
   globalUnknownWord = ""; 
   globalAddedYaku = "";   
   
@@ -407,11 +398,10 @@ function startRetryVoice() {
   document.getElementById('micBtn').click(); 
 }
 
-// 5. アガリ打点の計算ロジック（ツモ表示テキストの生成を追加）
+// 5. アガリ打点の計算ロジック
 function calculateScorePoints(han, fu, isOya, isTsumo) {
   let basePoint = 0;
   
-  // 満貫以上の判定
   if (han >= 13) basePoint = 8000; 
   else if (han >= 11) basePoint = 6000; 
   else if (han >= 8) basePoint = 4000; 
@@ -423,42 +413,48 @@ function calculateScorePoints(han, fu, isOya, isTsumo) {
   }
 
   let totalScore = 0;
-  let displayText = ""; // 画面表示用の文字列
+  let displayText = ""; 
   
   if (isTsumo) {
-    // 【ツモ上がりの場合】
     if (isOya) {
-      // 親のツモ
       let koPay = Math.ceil((basePoint * 2) / 100) * 100;
       totalScore = koPay * 3;
-      displayText = `${koPay}オール`; // 例：4000オール
+      displayText = `${koPay}オール`; 
     } else {
-      // 子のツモ
       let oyaPay = Math.ceil((basePoint * 2) / 100) * 100;
       let koPay = Math.ceil((basePoint * 1) / 100) * 100;
       totalScore = oyaPay + (koPay * 2);
-      displayText = `${koPay} / ${oyaPay}`; // 例：1000 / 2000
+      displayText = `${koPay} / ${oyaPay}`; 
     }
   } else {
-    // 【ロン上がりの場合】
     if (isOya) {
       totalScore = Math.ceil((basePoint * 6) / 100) * 100;
     } else {
       totalScore = Math.ceil((basePoint * 4) / 100) * 100;
     }
-    displayText = `${totalScore}点`; // 例：3900点
+    displayText = `${totalScore}点`; 
   }
-
-  // 合計点（GAS用）と、表示テキスト（画面用）の両方を返す
   return { total: totalScore, text: displayText };
+}
+
+// 【今回追加】裏でこっそり辞書に自動登録する関数（不足分）
+async function autoRegisterDictionary(raw, official) {
+  try {
+    const targetUrl = CONFIG_GAS_URL + "?action=addDictionary" 
+      + "&rawText=" + encodeURIComponent(raw) 
+      + "&officialText=" + encodeURIComponent(official);
+    await fetch(targetUrl, { method: "GET" });
+    log(`<span style="color:#06C755;">【自動学習完了】「${raw}」を「${official}」として辞書に登録しました。</span>`);
+    dictionary[raw] = official; 
+  } catch (error) {
+    log(`<span style="color:red;">【自動学習エラー】辞書の登録に失敗しました。</span>`);
+  }
 }
 
 // 6. GASへのデータ送信と結果表示
 async function sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo) {
-  // ▼ 今回追加：確定ボタンが押された瞬間に、条件が揃っていれば自動学習を走らせる
   if (globalUnknownWord && globalAddedYaku) {
     autoRegisterDictionary(globalUnknownWord, globalAddedYaku);
-    // 送信後は学習データをリセット
     globalUnknownWord = "";
     globalAddedYaku = "";
   }
@@ -493,7 +489,6 @@ async function sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo) {
   }
 }
 
-// 結果確認ビュー（画面上部）をコントロールする補助関数
 function showResultView(htmlMessage, bgColor, textColor, hideAfterMs = null) {
   const view = document.getElementById('resultView');
   const textDiv = document.getElementById('resultText');
@@ -510,7 +505,6 @@ function showResultView(htmlMessage, bgColor, textColor, hideAfterMs = null) {
   }
 }
 
-// ログ出力用補助関数（そのまま）
 function log(message) {
   const logArea = document.getElementById('logArea');
   if(logArea) {
@@ -518,8 +512,9 @@ function log(message) {
     logArea.scrollTop = logArea.scrollHeight;
   }
 }
+
 window.onload = () => {
-      loadDictionary();
+  loadDictionary();
 };
 </script>
 </body>
