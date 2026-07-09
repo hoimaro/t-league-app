@@ -347,14 +347,17 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
   const buttonsArea = document.getElementById('fuButtonsArea');
   const btnAutoSubmit = document.getElementById('btnAutoSubmit');
   
+  // 食い下がりだった場合に文字を付け足す
   let hanText = `${totalHan}翻`;
   if (isKuiseagariApplied) {
     hanText += `<span style="font-size:14px; color:#555;"> (食い下がり)</span>`;
   }
   
+  // 画面のテキストを組み立てる
   infoText.innerHTML = `確定役: ${yakuArray.join(", ")}<br>計算翻数: <b style="color:#e91e63;">${hanText}</b>`;
   buttonsArea.innerHTML = ""; 
   
+  // 自動計算可能な場合（ルート1相当）
   if (totalHan >= 5 || hasPinfu || hasChiitoitsu || totalHan === 4) {
     let autoFu = 30; 
     if (hasChiitoitsu) autoFu = 25;
@@ -366,7 +369,8 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
       sendMatchDataToGAS(globalYakuArray, totalHan, autoFu, isOya, isTsumo);
       popup.style.display = "none";
     };
-// 符計算が必要な場合（ルート2相当）
+  } 
+  // 符計算が必要な場合（ルート2相当）
   else {
     btnAutoSubmit.style.display = "none"; 
     
@@ -419,9 +423,8 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
         buttonsArea.appendChild(moreBtn);
     }
   }
-  popup.style.display = "flex";
 }
-
+  
 function startAddVoice() {
   isAddingMode = true;
   document.getElementById('confirmPopup').style.display = "none";
