@@ -254,10 +254,18 @@ function processSpeech(text) {
 
   // ▼ 学習ロジック ▼
   if (isAddingMode) {
-    if (extractedYaku.length === 1) {
+    // 【条件】未登録語句があり、かつ「今回の追加で抽出された役がちょうど1つ」である時のみ学習する
+    // 「役を2つ以上登録した（抽出された）」場合は、ここを通過できないため学習されません。
+    if (globalUnknownWord && extractedYaku.length === 1) {
       globalAddedYaku = extractedYaku[0];
+      log("【自動学習】未登録語句を1つの役として学習しました。");
     } else {
-      globalAddedYaku = ""; 
+      // 役が複数抽出された場合、またはそもそも役が抽出されなかった場合は保留シートへ
+      if (globalUnknownWord) {
+        sendToPendingSheet(globalUnknownWord, normalizedText);
+        log("【保留】言い直しで複数の役が抽出されたため、自動学習をキャンセルし保留しました。");
+      }
+      globalAddedYaku = "";
     }
     
     globalYakuArray.push(...extractedYaku);
@@ -358,7 +366,8 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
       sendMatchDataToGAS(globalYakuArray, totalHan, autoFu, isOya, isTsumo);
       popup.style.display = "none";
     };
-  } else {
+// 符計算が必要な場合（ルート2相当）
+  else {
     btnAutoSubmit.style.display = "none"; 
     
     let maxFu = 70;
@@ -369,33 +378,45 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
     if (hasToitoiSanankou) { maxFu = 110; defaultFu = 40; } 
     else if (hasMax2Koutsu) { maxFu = 100; }
 
-    let availableFu = [30, 40, 50, 60, 70, 80, 90, 100, 110];
-    for (let fu of availableFu) {
-      if (fu <= maxFu) {
+    // 全ての符リスト
+    let allFu = [30, 40, 50, 60, 70, 80, 90, 100, 110];
+    let showFu = allFu.filter(f => f <= maxFu);
+    
+    // 初期表示：30, 40, 50, 60, 70
+    let initialFuList = showFu.filter(f => [30, 40, 50, 60, 70].includes(f));
+    // 隠すもの：80以上
+    let hiddenFuList = showFu.filter(f => f >= 80);
+
+    const renderBtn = (fu) => {
         let btn = document.createElement("button");
         btn.textContent = fu + "符";
         if (fu === defaultFu) {
-          btn.style.background = "#007bff";
-          btn.style.color = "#fff";
-          btn.style.border = "2px solid #0056b3";
+          btn.style.background = "#007bff"; btn.style.color = "#fff"; btn.style.border = "2px solid #0056b3";
           btn.textContent = `★ ${fu}符`;
         } else {
-          btn.style.background = "#f8f9fa";
-          btn.style.color = "#333";
-          btn.style.border = "1px solid #ccc";
+          btn.style.background = "#f8f9fa"; btn.style.color = "#333"; btn.style.border = "1px solid #ccc";
         }
-        btn.style.padding = "10px 15px";
-        btn.style.borderRadius = "5px";
-        btn.style.fontSize = "16px";
-        btn.style.cursor = "pointer";
-        btn.style.flex = "1 1 25%";
-        
-        btn.onclick = () => {
-          sendMatchDataToGAS(globalYakuArray, totalHan, fu, isOya, isTsumo);
-          popup.style.display = "none";
+        btn.style.padding = "10px 15px"; btn.style.borderRadius = "5px"; btn.style.fontSize = "16px";
+        btn.style.cursor = "pointer"; btn.style.flex = "1 1 40%";
+        btn.onclick = () => { sendMatchDataToGAS(globalYakuArray, totalHan, fu, isOya, isTsumo); popup.style.display = "none"; };
+        return btn;
+    };
+
+    // ボタンの描画
+    initialFuList.forEach(f => buttonsArea.appendChild(renderBtn(f)));
+
+    // 「+もっと見る」ボタンの表示条件：隠れている符がある場合のみ
+    if (hiddenFuList.length > 0) {
+        let moreBtn = document.createElement("button");
+        moreBtn.textContent = "+ もっと見る";
+        moreBtn.style.background = "#6c757d"; moreBtn.style.color = "#fff";
+        moreBtn.style.padding = "10px 15px"; moreBtn.style.borderRadius = "5px";
+        moreBtn.style.flex = "1 1 40%";
+        moreBtn.onclick = () => {
+            moreBtn.remove();
+            hiddenFuList.forEach(f => buttonsArea.appendChild(renderBtn(f)));
         };
-        buttonsArea.appendChild(btn);
-      }
+        buttonsArea.appendChild(moreBtn);
     }
   }
   popup.style.display = "flex";
@@ -509,6 +530,18 @@ async function sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo) {
     }
   } catch (error) {
     showResultView(`【通信エラー】`, "#dc3545", "#fff", 3000);
+  }
+}
+
+async function sendToPendingSheet(unknown, raw) {
+  try {
+    const targetUrl = CONFIG_GAS_URL + "?action=addPending" 
+      + "&unknown=" + encodeURIComponent(unknown)
+      + "&raw=" + encodeURIComponent(raw);
+    await fetch(targetUrl, { method: "GET" });
+    log("📝 未登録語句を保留シートに記録しました。後で確認してください。");
+  } catch (e) {
+    log("⚠️ 保留シートへの記録に失敗しました。");
   }
 }
 
