@@ -47,6 +47,54 @@
   </style>
 </head>
 <body>
+  <div id="lobbyView" style="padding: 20px; text-align: center;">
+  <h2>🀄 麻雀卓の管理</h2>
+  <p id="lobbyStatus">状態を確認中...</p>
+  
+  <div id="createTableArea" style="display:none; margin-top:30px; padding:15px; border:1px solid #ccc; border-radius:8px; background:#f9f9f9;">
+    <h3>🆕 新しい卓を作成（ホスト用）</h3>
+    <p style="font-size:12px; color:#666;">東家（起家）から順番にメンバーを選択してください</p>
+    <div style="margin: 10px 0;">東家: <select id="selEast"><option value="">読み込み中...</option></select></div>
+    <div style="margin: 10px 0;">南家: <select id="selSouth"><option value="">読み込み中...</option></select></div>
+    <div style="margin: 10px 0;">西家: <select id="selWest"><option value="">読み込み中...</option></select></div>
+    <div style="margin: 10px 0;">北家: <select id="selNorth"><option value="">読み込み中...</option></select></div>
+    <button id="btnCreateTable" style="margin-top:15px; padding:10px 20px; background:#007bff; color:#fff; border:none; border-radius:5px; font-size:16px; cursor:pointer;">この4人で対局開始</button>
+  </div>
+</div>
+
+<div id="mainGameView" style="display: none;">
+  
+  <div class="mahjong-table-container" style="background:#437c43; width:100%; max-width:400px; margin:0 auto; aspect-ratio:1/1; border:8px solid #5d4037; border-radius:15px; position:relative; box-sizing:border-box; padding:15px;">
+    
+    <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:#e0e0e0; width:35%; height:35%; border-radius:10px; display:flex; flex-direction:column; justify-content:center; align-items:center; font-weight:bold; font-size:16px; line-height:1.4; box-shadow:0 2px 5px rgba(0,0,0,0.2);">
+      <span id="uiKyoku">東1局</span>
+      <span id="uiHonba">0本場</span>
+      <span id="uiKyotaku" style="font-size:12px; color:#333;">供託: 0</span>
+    </div>
+    
+    <div id="boxToimen" style="position:absolute; top:15px; left:50%; transform:translateX(-50%); background:#1a1a1a; color:#fff; padding:8px 15px; border-radius:5px; text-align:center; min-width:80px;">
+      <div class="p-name" style="font-size:14px;">対面</div>
+      <div class="p-score" style="font-size:16px; font-weight:bold; color:#ffeb3b;">25000</div>
+    </div>
+    
+    <div id="boxShimocha" style="position:absolute; top:50%; right:15px; transform:translateY(-50%); background:#1a1a1a; color:#fff; padding:8px 15px; border-radius:5px; text-align:center; min-width:80px;">
+      <div class="p-name" style="font-size:14px;">下家</div>
+      <div class="p-score" style="font-size:16px; font-weight:bold; color:#ffeb3b;">25000</div>
+    </div>
+    
+    <div id="boxKamicha" style="position:absolute; top:50%; left:15px; transform:translateY(-50%); background:#1a1a1a; color:#fff; padding:8px 15px; border-radius:5px; text-align:center; min-width:80px;">
+      <div class="p-name" style="font-size:14px;">上家</div>
+      <div class="p-score" style="font-size:16px; font-weight:bold; color:#ffeb3b;">25000</div>
+    </div>
+    
+    <div id="boxJibun" style="position:absolute; bottom:15px; left:50%; transform:translateX(-50%); background:#1a1a1a; color:#fff; padding:8px 15px; border-radius:5px; text-align:center; min-width:80px; border:2px solid #e57373; box-shadow:0 0 8px #e57373;">
+      <div class="p-name" style="font-size:14px; color:#e57373; font-weight:bold;">自分</div>
+      <div class="p-score" style="font-size:16px; font-weight:bold; color:#ffeb3b;">25000</div>
+    </div>
+  </div>
+  <div style="text-align:center; margin-top:20px;">
+     </div>
+</div>
   <h2>T-LEAGUE 対局管理</h2>
   
   <!-- 麻雀卓UI -->
@@ -95,8 +143,170 @@
   <div id="logArea">辞書データをダウンロードしています...<br></div>
 
 <script>
-    // 先ほどデプロイした新しいGASのWebアプリURLに書き換えてください
-// 先ほどデプロイした新しいGASのWebアプリURLに書き換えてください
+  // アプリ起動時に最初に呼び出す関数
+async function initApp() {
+  const myUserId = CONFIG_USER_ID; // 既にアプリが持っている自分のLINE ID
+  
+  if (!myUserId) {
+    document.getElementById("lobbyStatus").textContent = "⚠️ ユーザーIDが取得できません。LINEから開き直してください。";
+    return;
+  }
+  
+  document.getElementById("lobbyStatus").textContent = "⏳ 参加中の卓を確認しています...";
+  
+  try {
+    // 1. 自分が参加している「進行中の卓」があるかGASに問い合わせ
+    const res = await fetch(`${CONFIG_GAS_URL}?action=getMyTable&userId=${myUserId}`);
+    const resData = await res.json();
+    
+    if (resData.result === "success") {
+      // ➡️ 卓が見つかった！自動着席してメイン画面を表示
+      setupMahjongTableUI(resData.tableData, myUserId);
+    } else {
+      // ➡️ 卓がなかった！ホスト用の卓作成画面をロード
+      document.getElementById("lobbyStatus").textContent = "現在、進行中の卓はありません。";
+      loadHostInterface();
+    }
+  } catch (e) {
+    document.getElementById("lobbyStatus").textContent = "⚠️ 通信エラーが発生しました。";
+  }
+}
+
+// 自分の席（東・南・西・北）を基準にして、名前と点数をUIにハメ込む神ロジック
+function setupMahjongTableUI(table, myUserId) {
+  // 画面をロビーから対局画面に切り替える
+  document.getElementById("lobbyView").style.display = "none";
+  document.getElementById("mainGameView").style.display = "block";
+  
+  // 中央の局情報を更新
+  document.getElementById("uiKyoku").textContent = table.kyoku;
+  document.getElementById("uiHonba").textContent = table.honba + "本場";
+  document.getElementById("uiKyotaku").textContent = "供託: " + table.kyotaku;
+
+  // 絶対位置（東南西北）の並び順（反時計回り）
+  const SEATS = ["東", "南", "西", "北"];
+  
+  // 各風の「名前」と「点数」のデータをオブジェクトでまとめる
+  const seatData = {
+    "東": { name: table.eastName, score: table.eastScore },
+    "南": { name: table.southName, score: table.southScore },
+    "西": { name: table.westName, score: table.westScore },
+    "北": { name: table.northName, score: table.northScore }
+  };
+
+  // 自分の座席のインデックス（例：自分が「西」なら 2 ）
+  let myIdx = SEATS.indexOf(table.mySeat);
+
+  // 自分から見た相対位置（下家・対面・上家）のインデックスを計算
+  let shimochaIdx = (myIdx + 1) % 4; // 自分の次の風
+  let toimenIdx   = (myIdx + 2) % 4; // 自分の正面の風
+  let kamichaIdx  = (myIdx + 3) % 4; // 自分の前の風
+
+  let shimochaSeat = SEATS[shimochaIdx];
+  let toimenSeat   = SEATS[toimenIdx];
+  let kamichaSeat  = SEATS[kamichaIdx];
+
+  // 1. 自分（下）のUIを更新
+  updateBox("boxJibun", seatData[table.mySeat].name, seatData[table.mySeat].score);
+  // 2. 下家（右）のUIを更新
+  updateBox("boxShimocha", seatData[shimochaSeat].name, seatData[shimochaSeat].score);
+  // 3. 对面（上）のUIを更新
+  updateBox("boxToimen", seatData[toimenSeat].name, seatData[toimenSeat].score);
+  // 4. 上家（左）のUIを更新
+  updateBox("boxKamicha", seatData[kamichaSeat].name, seatData[kamichaSeat].score);
+  
+  log(`🀄 ${table.mySeat}家として自動着席しました（卓ID: ${table.tableId}）`);
+}
+
+// UIの文字を書き換える補助関数
+function updateBox(elementId, name, score) {
+  const box = document.getElementById(elementId);
+  box.querySelector(".p-name").textContent = name;
+  box.querySelector(".p-score").textContent = score.toLocaleString();
+}
+
+// --- ホスト用：メンバー名簿を読み込んでプルダウンを作る処理（ゲスト自動追加版）---
+async function loadHostInterface() {
+  document.getElementById("createTableArea").style.display = "block";
+  try {
+    const res = await fetch(`${CONFIG_GAS_URL}?action=getMembers`);
+    const data = await res.json();
+    if (data.result === "success") {
+      const selects = [
+        document.getElementById("selEast"), 
+        document.getElementById("selSouth"), 
+        document.getElementById("selWest"), 
+        document.getElementById("selNorth")
+      ];
+      
+      selects.forEach(sel => {
+        sel.innerHTML = '<option value="">-- 選択してください --</option>';
+        
+        // ① 名簿シートに登録されている本物のメンバーをプルダウンに追加
+        data.members.forEach(m => {
+          let opt = document.createElement("option");
+          opt.value = m.id; 
+          opt.textContent = m.name;
+          sel.appendChild(opt);
+        });
+        
+        // ② 【今回追加】人数が足りない時やテスト用の「ゲスト枠」を自動で3人分追加
+        for (let i = 1; i <= 3; i++) {
+          let opt = document.createElement("option");
+          opt.value = `GUEST_${i}`; 
+          opt.textContent = `ゲスト${i} (テスト用)`;
+          sel.appendChild(opt);
+        }
+      });
+      
+      // 卓作成ボタンのクリックイベント
+      document.getElementById("btnCreateTable").onclick = createNewTable;
+    }
+  } catch(e) { 
+    console.error("名簿の読み込み失敗", e); 
+  }
+}
+
+// ホストが「対局開始」を押した時の処理
+async function createNewTable() {
+  const eId = document.getElementById("selEast").value;
+  const sId = document.getElementById("selSouth").value;
+  const wId = document.getElementById("selWest").value;
+  const nId = document.getElementById("selNorth").value;
+  
+  if(!eId || !sId || !wId || !nId) { 
+    alert("4人全員を選択してください！"); 
+    return; 
+  }
+  
+  document.getElementById("lobbyStatus").textContent = "⚡ 卓を作成中...";
+  const url = `${CONFIG_GAS_URL}?action=createTable&pEast=${eId}&pSouth=${sId}&pWest=${wId}&pNorth=${nId}`;
+  
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    
+    if(data.result === "success") {
+      // 作成が成功したら、そのままアプリを再起動させて自動着席させる
+      initApp();
+    } 
+    // ▼ 追加：ダブルブッキング時のエラーハンドリング
+    else if (data.result === "error_busy") {
+      alert("⚠️ 選択されたメンバーの中に、すでに別の進行中の卓に参加している人がいます。\n\n画面をリロードすると、自動的にその卓へ合流します。");
+      document.getElementById("lobbyStatus").textContent = "画面をリロードしてください。";
+    } 
+    else {
+      alert("卓の作成に失敗しました。");
+    }
+  } catch(e) {
+    alert("通信エラーが発生しました。");
+  }
+}
+
+// 画面がロードされたら自動でチェックを開始
+window.addEventListener("load", initApp);
+
+// GASのWebアプリURLに書き換えてください
 const CONFIG_GAS_URL = "https://script.google.com/macros/s/AKfycbxApVeyJSrYaWtUDyttPUbUdvMgs3OknGQ5ZuLz9AhdJxrxa3S3KQsgQK1VUJ6z6kI/exec"; 
 
 let dictionary = {};
