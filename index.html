@@ -195,49 +195,74 @@ async function initApp() {
 }
 
 // 自分の席（東・南・西・北）を基準にして、名前と点数をUIにハメ込む神ロジック
-function setupMahjongTableUI(table, myUserId) {
-  // 画面をロビーから対局画面に切り替える
+// メイン画面のUIをセットアップする関数
+function setupMahjongTableUI(tableData, myUserId) {
   document.getElementById("lobbyView").style.display = "none";
   document.getElementById("mainGameView").style.display = "block";
-  
-  // 中央の局情報を更新
-  document.getElementById("uiKyoku").textContent = table.kyoku;
-  document.getElementById("uiHonba").textContent = table.honba + "本場";
-  document.getElementById("uiKyotaku").textContent = "供託: " + table.kyotaku;
 
-  // 絶対位置（東南西北）の並び順（反時計回り）
-  const SEATS = ["東", "南", "西", "北"];
-  
-  // 各風の「名前」と「点数」のデータをオブジェクトでまとめる
-  const seatData = {
-    "東": { name: table.eastName, score: table.eastScore },
-    "南": { name: table.southName, score: table.southScore },
-    "西": { name: table.westName, score: table.westScore },
-    "北": { name: table.northName, score: table.northScore }
-  };
+  // 1. 各プレイヤー情報に「風（東・南・西・北）」のデータを追加して配列化
+  const players = [
+    { id: tableData.eastId, name: tableData.eastName, score: tableData.eastScore, wind: "東" },
+    { id: tableData.southId, name: tableData.southName, score: tableData.southScore, wind: "南" },
+    { id: tableData.westId, name: tableData.westName, score: tableData.westScore, wind: "西" },
+    { id: tableData.northId, name: tableData.northName, score: tableData.northScore, wind: "北" }
+  ];
 
-  // 自分の座席のインデックス（例：自分が「西」なら 2 ）
-  let myIdx = SEATS.indexOf(table.mySeat);
+  // 2. 自分の席（インデックス）を探す
+  let myIndex = players.findIndex(p => p.id === myUserId);
+  if (myIndex === -1) myIndex = 0; // 見つからない場合は仮に東家視点
 
-  // 自分から見た相対位置（下家・対面・上家）のインデックスを計算
-  let shimochaIdx = (myIdx + 1) % 4; // 自分の次の風
-  let toimenIdx   = (myIdx + 2) % 4; // 自分の正面の風
-  let kamichaIdx  = (myIdx + 3) % 4; // 自分の前の風
+  // 3. 画面の各位置（下・右・上・左）にデータを割り当て
+  const positions = [
+    { pos: "Bottom", data: players[(myIndex) % 4] },
+    { pos: "Right",  data: players[(myIndex + 1) % 4] },
+    { pos: "Top",    data: players[(myIndex + 2) % 4] },
+    { pos: "Left",   data: players[(myIndex + 3) % 4] }
+  ];
 
-  let shimochaSeat = SEATS[shimochaIdx];
-  let toimenSeat   = SEATS[toimenIdx];
-  let kamichaSeat  = SEATS[kamichaIdx];
+  // 4. HTMLに書き込み
+  positions.forEach(p => {
+    let nameEl = document.getElementById(`name${p.pos}`) || document.getElementById(`playerName-${p.pos.toLowerCase()}`);
+    let scoreEl = document.getElementById(`score${p.pos}`) || document.getElementById(`playerScore-${p.pos.toLowerCase()}`);
 
-  // 1. 自分（下）のUIを更新
-  updateBox("boxJibun", seatData[table.mySeat].name, seatData[table.mySeat].score);
-  // 2. 下家（右）のUIを更新
-  updateBox("boxShimocha", seatData[shimochaSeat].name, seatData[shimochaSeat].score);
-  // 3. 对面（上）のUIを更新
-  updateBox("boxToimen", seatData[toimenSeat].name, seatData[toimenSeat].score);
-  // 4. 上家（左）のUIを更新
-  updateBox("boxKamicha", seatData[kamichaSeat].name, seatData[kamichaSeat].score);
-  
-  log(`🀄 ${table.mySeat}家として自動着席しました（卓ID: ${table.tableId}）`);
+    if (nameEl) {
+      // 名前はシンプルに名前だけを入れる
+      nameEl.textContent = p.data.name;
+
+      // 親要素（黒い四角の枠）を取得し、位置の基準（relative）にする
+      let boxEl = nameEl.parentElement;
+      boxEl.style.position = "relative";
+
+      // 既に風のマークがあれば一旦消す（画面更新時のダブり防止）
+      let oldBadge = boxEl.querySelector(".wind-badge");
+      if (oldBadge) oldBadge.remove();
+
+      // 新しい風のマークを作成して左上に絶対配置（absolute）
+      let badge = document.createElement("div");
+      badge.className = "wind-badge";
+      badge.textContent = p.data.wind;
+      badge.style.position = "absolute";
+      badge.style.top = "4px";    // 上からのすき間
+      badge.style.left = "6px";   // 左からのすき間
+      badge.style.fontSize = "12px"; // 少し小さくスマートに
+      badge.style.color = "#FFD700"; // ゴールド色
+      badge.style.fontWeight = "bold";
+      
+      // 枠の中にシールのように貼り付ける
+      boxEl.appendChild(badge);
+    }
+    
+    if (scoreEl) {
+      // 25,000 のようにカンマをつけて見やすくする
+      scoreEl.textContent = Number(p.data.score).toLocaleString(); 
+    }
+  });
+
+  // 5. 中央の局情報の更新
+  let roundInfoEl = document.getElementById("roundInfo") || document.getElementById("centerInfo");
+  if (roundInfoEl) {
+    roundInfoEl.innerHTML = `${tableData.round}<br>${tableData.honba}本場<br>供託: ${tableData.kyotaku}`;
+  }
 }
 
 // UIの文字を書き換える補助関数
