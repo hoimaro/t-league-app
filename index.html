@@ -143,12 +143,25 @@
   <div id="logArea">辞書データをダウンロードしています...<br></div>
 
 <script>
-  // アプリ起動時に最初に呼び出す関数
+// アプリ起動時に最初に呼び出す関数
 async function initApp() {
-  const myUserId = CONFIG_USER_ID; // 既にアプリが持っている自分のLINE ID
-  
+  // ▼【修正】URLパラメータ（?userId=xxx）またはローカルストレージからIDを取得する
+  const urlParams = new URLSearchParams(window.location.search);
+  let myUserId = urlParams.get('userId');
+
+  // URLにIDがない場合は、以前保存したキャッシュから探す
   if (!myUserId) {
-    document.getElementById("lobbyStatus").textContent = "⚠️ ユーザーIDが取得できません。LINEから開き直してください。";
+    myUserId = localStorage.getItem('myUserId');
+  } else {
+    // URLでIDが渡されてきたら、次回のためにスマホに記憶させておく
+    localStorage.setItem('myUserId', myUserId);
+  }
+  
+  // それでもIDがない場合（PCのブラウザで直接URLを開いた時など）の安全処理
+  if (!myUserId) {
+    document.getElementById("lobbyStatus").innerHTML = "⚠️ ユーザーIDが取得できません。<br>LINEから開き直すか、テスト用のIDを設定してください。";
+    // テスト用に、IDがなくても卓作成画面（ロビー）を開けるようにしておく
+    loadHostInterface();
     return;
   }
   
@@ -170,6 +183,7 @@ async function initApp() {
   } catch (e) {
     document.getElementById("lobbyStatus").textContent = "⚠️ 通信エラーが発生しました。";
   }
+}
 }
 
 // 自分の席（東・南・西・北）を基準にして、名前と点数をUIにハメ込む神ロジック
