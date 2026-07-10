@@ -45,6 +45,7 @@
       border-radius: 8px; border: 1px solid #ccc; overflow-y: auto; font-size: 14px;
     }
   </style>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
   <div id="lobbyView" style="padding: 20px; text-align: center;">
@@ -128,24 +129,47 @@
   <div id="logArea">辞書データをダウンロードしています...<br></div>
 
 <script>
-// アプリ起動時に最初に呼び出す関数
-async function initApp() {
-  // ▼【修正】URLパラメータ（?userId=xxx）またはローカルストレージからIDを取得する
-  const urlParams = new URLSearchParams(window.location.search);
-  let myUserId = urlParams.get('userId');
+// アプリ起動時に最初に呼び出す関数（LIFF連動版）
+const CONFIG_LIFF_ID = "2010600263-dAcCU7j1"; 
 
-  // URLにIDがない場合は、以前保存したキャッシュから探す
+async function initApp() {
+  let myUserId = null;
+
+  // 1. URLパラメータ（?userId=xxx）からID取得を試みる（PCテスト用）
+  const urlParams = new URLSearchParams(window.location.search);
+  myUserId = urlParams.get('userId');
+
+  // 2. URLにIDがなく、LIFF IDが設定されている場合はLINEからIDを自動取得
+  if (!myUserId && CONFIG_LIFF_ID && CONFIG_LIFF_ID !== "2010600263-dAcCU7j1") {
+    try {
+      // LIFFの初期化
+      await liff.init({ liffId: CONFIG_LIFF_ID });
+      
+      // LINEアプリ内で開かれているかチェック
+      if (liff.isLoggedIn()) {
+        const profile = await liff.getProfile();
+        myUserId = profile.userId; // LINEから本物のUserIDを自動取得！
+      } else {
+        // LINE外（普通のSafariやChrome等）で開かれた場合はログイン画面へ誘導
+        liff.login();
+        return;
+      }
+    } catch (err) {
+      console.error("LIFFの初期化またはID取得に失敗しました:", err);
+    }
+  }
+
+  // 3. それでもIDがない場合は、以前保存したキャッシュから探す
   if (!myUserId) {
     myUserId = localStorage.getItem('myUserId');
   } else {
-    // URLでIDが渡されてきたら、次回のためにスマホに記憶させておく
+    // IDが取得できたら次回のためにスマホに記憶させておく
     localStorage.setItem('myUserId', myUserId);
   }
   
-  // それでもIDがない場合（PCのブラウザで直接URLを開いた時など）の安全処理
+  // 4. 最終的にIDが全く取得できない場合の安全処理
   if (!myUserId) {
-    document.getElementById("lobbyStatus").innerHTML = "⚠️ ユーザーIDが取得できません。<br>LINEから開き直すか、テスト用のIDを設定してください。";
-    // テスト用に、IDがなくても卓作成画面（ロビー）を開けるようにしておく
+    document.getElementById("lobbyStatus").innerHTML = "⚠️ ユーザーIDが取得できません。<br>LINEから開き直すか、URLの末尾に ?userId=GUEST_1 などを付けてください。";
     loadHostInterface();
     return;
   }
@@ -153,7 +177,7 @@ async function initApp() {
   document.getElementById("lobbyStatus").textContent = "⏳ 参加中の卓を確認しています...";
   
   try {
-    // 1. 自分が参加している「進行中の卓」があるかGASに問い合わせ
+    // 自分が参加している「進行中の卓」があるかGASに問い合わせ
     const res = await fetch(`${CONFIG_GAS_URL}?action=getMyTable&userId=${myUserId}`);
     const resData = await res.json();
     
