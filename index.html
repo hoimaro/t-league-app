@@ -190,7 +190,7 @@ async function initApp() {
       loadHostInterface();
     }
   } catch (e) {
-    document.getElementById("lobbyStatus").textContent = "⚠️ 通信エラーが発生しました。";
+    document.getElementById("lobbyStatus").innerHTML = "⚠️ 通信エラー発生:<br>" + e.message;
   }
 }
 
