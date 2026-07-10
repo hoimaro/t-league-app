@@ -341,88 +341,140 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
 }
 
 // 統合された確認・アクションポップアップ
+// 統合された確認・アクションポップアップ
 function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, isTsumo, isOya, yakuArray, isKuiseagariApplied) {
   const popup = document.getElementById('confirmPopup');
   const infoText = document.getElementById('confirmPopupInfo');
   const buttonsArea = document.getElementById('fuButtonsArea');
   const btnAutoSubmit = document.getElementById('btnAutoSubmit');
   
-  // 食い下がりだった場合に文字を付け足す
-  let hanText = `${totalHan}翻`;
-  if (isKuiseagariApplied) {
-    hanText += `<span style="font-size:14px; color:#555;"> (食い下がり)</span>`;
-  }
-  
-  // 画面のテキストを組み立てる
-  infoText.innerHTML = `確定役: ${yakuArray.join(", ")}<br>計算翻数: <b style="color:#e91e63;">${hanText}</b>`;
   buttonsArea.innerHTML = ""; 
+  btnAutoSubmit.style.display = "none"; // 初期状態は非表示
   
-  // 自動計算可能な場合（ルート1相当）
-  if (totalHan >= 5 || hasPinfu || hasChiitoitsu || totalHan === 4) {
-    let autoFu = 30; 
-    if (hasChiitoitsu) autoFu = 25;
-    if (hasPinfu && isTsumo) autoFu = 20;
+  // ▼【今回の修正】役が認識できず、未登録語句がある場合の専用UI（やり直し・キャンセル）
+  if (totalHan === 0 && globalUnknownWord) {
+    infoText.innerHTML = `
+      <span style="color:#dc3545; font-weight:bold; font-size:18px;">⚠️ 役を認識できません</span><br>
+      <div style="margin:10px 0; padding:8px; background:#f8d7da; color:#721c24; border-radius:5px; font-size:14px;">
+        未登録ワード: <b>「${globalUnknownWord}」</b>
+      </div>
+      <span style="font-size:13px; color:#666;">「やり直し」を押して、正しい役名を言い直してください。</span>
+    `;
 
-    btnAutoSubmit.style.display = "block";
-    btnAutoSubmit.textContent = `このまま記録 (${autoFu}符)`;
-    btnAutoSubmit.onclick = () => {
-      sendMatchDataToGAS(globalYakuArray, totalHan, autoFu, isOya, isTsumo);
+    // ① やり直しボタン（見た目は「やり直し」だが、裏の動きは「追加（学習）」）
+    let btnRetryAsAdd = document.createElement("button");
+    btnRetryAsAdd.innerHTML = "🎤 やり直し";
+    btnRetryAsAdd.style.background = "#28a745"; 
+    btnRetryAsAdd.style.color = "#fff";
+    btnRetryAsAdd.style.border = "none";
+    btnRetryAsAdd.style.padding = "10px 15px";
+    btnRetryAsAdd.style.borderRadius = "5px";
+    btnRetryAsAdd.style.fontSize = "16px";
+    btnRetryAsAdd.style.cursor = "pointer";
+    btnRetryAsAdd.style.flex = "1 1 45%";
+    btnRetryAsAdd.onclick = () => {
       popup.style.display = "none";
+      isAddingMode = true;  // 学習モードをON
+      startVoiceInput();    // 音声認識を再スタート（※もし普段の関数名が違う場合は書き換えてください）
     };
+
+    // ② キャンセルボタン（無限ループ回避）
+    let btnCancel = document.createElement("button");
+    btnCancel.innerHTML = "✖ キャンセル";
+    btnCancel.style.background = "#6c757d"; 
+    btnCancel.style.color = "#fff";
+    btnCancel.style.border = "none";
+    btnCancel.style.padding = "10px 15px";
+    btnCancel.style.borderRadius = "5px";
+    btnCancel.style.fontSize = "16px";
+    btnCancel.style.cursor = "pointer";
+    btnCancel.style.flex = "1 1 45%";
+    btnCancel.onclick = () => {
+      popup.style.display = "none";
+      // 裏で持っていた未登録データなどをすべて白紙に戻す
+      globalUnknownWord = "";
+      isAddingMode = false;
+      log("入力をキャンセルしました。");
+    };
+
+    // ボタンを横並びに配置
+    buttonsArea.style.display = "flex";
+    buttonsArea.style.gap = "10px";
+    buttonsArea.appendChild(btnRetryAsAdd);
+    buttonsArea.appendChild(btnCancel);
   } 
-  // 符計算が必要な場合（ルート2相当）
+  // 通常の役が認識されている場合のUI（既存）
   else {
-    btnAutoSubmit.style.display = "none"; 
+    let hanText = `${totalHan}翻`;
+    if (isKuiseagariApplied) {
+      hanText += `<span style="font-size:14px; color:#555;"> (食い下がり)</span>`;
+    }
     
-    let maxFu = 70;
-    let defaultFu = 30;
-    const max2KoutsuYaku = ["混全帯么九", "純全帯么九", "三色同順", "一気通貫"];
-    let hasMax2Koutsu = yakuArray.some(yaku => max2KoutsuYaku.includes(yaku));
+    infoText.innerHTML = `確定役: ${yakuArray.join(", ")}<br>計算翻数: <b style="color:#e91e63;">${hanText}</b>`;
+    buttonsArea.style.display = "flex";
+    buttonsArea.style.gap = "5px";
     
-    if (hasToitoiSanankou) { maxFu = 110; defaultFu = 40; } 
-    else if (hasMax2Koutsu) { maxFu = 100; }
+    // 自動計算可能な場合
+    if (totalHan >= 5 || hasPinfu || hasChiitoitsu || totalHan === 4) {
+      let autoFu = 30; 
+      if (hasChiitoitsu) autoFu = 25;
+      if (hasPinfu && isTsumo) autoFu = 20;
 
-    // 全ての符リスト
-    let allFu = [30, 40, 50, 60, 70, 80, 90, 100, 110];
-    let showFu = allFu.filter(f => f <= maxFu);
-    
-    // 初期表示：30, 40, 50, 60, 70
-    let initialFuList = showFu.filter(f => [30, 40, 50, 60, 70].includes(f));
-    // 隠すもの：80以上
-    let hiddenFuList = showFu.filter(f => f >= 80);
+      btnAutoSubmit.style.display = "block";
+      btnAutoSubmit.textContent = `このまま記録 (${autoFu}符)`;
+      btnAutoSubmit.onclick = () => {
+        sendMatchDataToGAS(globalYakuArray, totalHan, autoFu, isOya, isTsumo);
+        popup.style.display = "none";
+      };
+    } 
+    // 符計算が必要な場合
+    else {
+      let maxFu = 70;
+      let defaultFu = 30;
+      const max2KoutsuYaku = ["混全帯么九", "純全帯幺九", "三色同順", "一気通貫", "混全帯么九", "純全帯么九"];
+      let hasMax2Koutsu = yakuArray.some(yaku => max2KoutsuYaku.includes(yaku));
+      
+      if (hasToitoiSanankou) { maxFu = 110; defaultFu = 40; } 
+      else if (hasMax2Koutsu) { maxFu = 100; }
 
-    const renderBtn = (fu) => {
-        let btn = document.createElement("button");
-        btn.textContent = fu + "符";
-        if (fu === defaultFu) {
-          btn.style.background = "#007bff"; btn.style.color = "#fff"; btn.style.border = "2px solid #0056b3";
-          btn.textContent = `★ ${fu}符`;
-        } else {
-          btn.style.background = "#f8f9fa"; btn.style.color = "#333"; btn.style.border = "1px solid #ccc";
-        }
-        btn.style.padding = "10px 15px"; btn.style.borderRadius = "5px"; btn.style.fontSize = "16px";
-        btn.style.cursor = "pointer"; btn.style.flex = "1 1 40%";
-        btn.onclick = () => { sendMatchDataToGAS(globalYakuArray, totalHan, fu, isOya, isTsumo); popup.style.display = "none"; };
-        return btn;
-    };
+      let allFu = [30, 40, 50, 60, 70, 80, 90, 100, 110];
+      let showFu = allFu.filter(f => f <= maxFu);
+      
+      let initialFuList = showFu.filter(f => [30, 40, 50, 60, 70].includes(f));
+      let hiddenFuList = showFu.filter(f => f >= 80);
 
-    // ボタンの描画
-    initialFuList.forEach(f => buttonsArea.appendChild(renderBtn(f)));
+      const renderBtn = (fu) => {
+          let btn = document.createElement("button");
+          btn.textContent = fu + "符";
+          if (fu === defaultFu) {
+            btn.style.background = "#007bff"; btn.style.color = "#fff"; btn.style.border = "2px solid #0056b3";
+            btn.textContent = `★ ${fu}符`;
+          } else {
+            btn.style.background = "#f8f9fa"; btn.style.color = "#333"; btn.style.border = "1px solid #ccc";
+          }
+          btn.style.padding = "10px 15px"; btn.style.borderRadius = "5px"; btn.style.fontSize = "16px";
+          btn.style.cursor = "pointer"; btn.style.flex = "1 1 40%";
+          btn.onclick = () => { sendMatchDataToGAS(globalYakuArray, totalHan, fu, isOya, isTsumo); popup.style.display = "none"; };
+          return btn;
+      };
 
-    // 「+もっと見る」ボタンの表示条件：隠れている符がある場合のみ
-    if (hiddenFuList.length > 0) {
-        let moreBtn = document.createElement("button");
-        moreBtn.textContent = "+ もっと見る";
-        moreBtn.style.background = "#6c757d"; moreBtn.style.color = "#fff";
-        moreBtn.style.padding = "10px 15px"; moreBtn.style.borderRadius = "5px";
-        moreBtn.style.flex = "1 1 40%";
-        moreBtn.onclick = () => {
-            moreBtn.remove();
-            hiddenFuList.forEach(f => buttonsArea.appendChild(renderBtn(f)));
-        };
-        buttonsArea.appendChild(moreBtn);
+      initialFuList.forEach(f => buttonsArea.appendChild(renderBtn(f)));
+
+      if (hiddenFuList.length > 0) {
+          let moreBtn = document.createElement("button");
+          moreBtn.textContent = "+ もっと見る";
+          moreBtn.style.background = "#6c757d"; moreBtn.style.color = "#fff";
+          moreBtn.style.padding = "10px 15px"; moreBtn.style.borderRadius = "5px";
+          moreBtn.style.flex = "1 1 40%";
+          moreBtn.onclick = () => {
+              moreBtn.remove();
+              hiddenFuList.forEach(f => buttonsArea.appendChild(renderBtn(f)));
+          };
+          buttonsArea.appendChild(moreBtn);
+      }
     }
   }
+
   popup.style.display = "flex";
 }
   
