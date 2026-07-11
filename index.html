@@ -164,23 +164,25 @@
 <div id="confirmPopup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100; justify-content:center; align-items:center;">
   <div style="background:#fff; padding:20px; border-radius:10px; width:90%; max-width:320px; text-align:center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
     <h3 style="margin-top:0; color:#333; font-size:18px;">認識結果の確認</h3>
+    <!-- ① 確定役 -->
     <p id="confirmPopupInfo" style="font-size:16px; color:#333; margin-bottom:15px; font-weight:bold;"></p>
     
-    <!-- ①放銃者エリア（符より前に配置） -->
+    <!-- ② 翻数と役の追加ボタンを統合 -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px; padding:10px; background:#f8f9fa; border-radius:5px;">
+      <span id="hanDisplay" style="font-weight:bold; font-size:22px; color:#e91e63;"></span>
+      <button onclick="startAddVoice()" style="background:#499da9; color:#fff; padding:10px 15px; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">🎤 役の追加</button>
+    </div>
+
+    <!-- ③ 放銃者エリア -->
     <div id="loserArea" style="margin-bottom:15px; text-align:left;">
       <label style="font-size:14px; font-weight:bold;">放銃者</label>
       <div id="loserButtonsContainer" style="display:flex; gap:5px; margin-top:5px;"></div>
       <input type="hidden" id="selectLoser" value="">
     </div>
 
-    <!-- ②符選択エリア（3列表示に変更） -->
+    <!-- ④ 符の決定と符ボタン -->
+    <div style="margin-bottom:5px; text-align:left; font-size:14px; font-weight:bold;">符の決定</div>
     <div id="fuButtonsArea" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:15px;"></div>
-    
-    <!-- ③役の追加エリア（左に翻数、右に追加ボタン） -->
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px; padding:10px; background:#f8f9fa; border-radius:5px;">
-      <span id="hanDisplay" style="font-weight:bold; font-size:16px; color:#e91e63;"></span>
-      <button onclick="startAddVoice()" style="background:#17a2b8; color:#fff; padding:10px 15px; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">🎤役の追加</button>
-    </div>
 
     <!-- アガリ者選択 -->
     <div id="winnerArea" style="margin-bottom:15px; text-align:left;">
@@ -799,7 +801,11 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
     }
     
     infoText.innerHTML = `確定役: ${yakuArray.join(", ")}`;
-    document.getElementById("hanDisplay").textContent = hanText; // 翻数表示を連動
+    const hanDisp = document.getElementById("hanDisplay");
+    if (hanDisp) {
+        hanDisp.textContent = hanText;
+        hanDisp.style.fontSize = "22px"; // フォントサイズを大きく指定
+    }
     buttonsArea.style.display = "grid"; // gridレイアウトに変更
     buttonsArea.style.gap = "5px";
     
@@ -844,7 +850,8 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
           btn.style.padding = "10px 0"; // 横幅調整
           btn.style.borderRadius = "5px"; btn.style.fontSize = "16px";
           btn.style.cursor = "pointer"; 
-          btn.style.width = "100%"; // グリッドで3列に並ぶよう指定
+          btn.style.width = "100%";
+          btn.style.boxSizing = "border-box"; // 枠線を含めてサイズ計算
           btn.onclick = () => { sendMatchDataToGAS(globalYakuArray, totalHan, fu, isOya, isTsumo); popup.style.display = "none"; };
           return btn;
       };
@@ -853,7 +860,7 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
 
       if (hiddenFuList.length > 0) {
           let moreBtn = document.createElement("button");
-          moreBtn.textContent = "+ もっと見る";
+          moreBtn.textContent = "全表示";
           moreBtn.style.background = "#6c757d"; moreBtn.style.color = "#fff";
           moreBtn.style.padding = "10px 15px"; moreBtn.style.borderRadius = "5px";
           moreBtn.style.flex = "1 1 40%";
