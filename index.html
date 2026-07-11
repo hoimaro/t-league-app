@@ -190,12 +190,13 @@
 <script>
 // アプリ起動時に最初に呼び出す関数（LIFF連動版）
 const CONFIG_LIFF_ID = "2010600263-fW0rPubj"; 
+let myUserId = new URLSearchParams(window.location.search).get('id') || new URLSearchParams(window.location.search).get('userId');
 
 async function initApp() {
   // 1. URLパラメータ（?id=DUMMY_1 など）からID取得を試みる
   const urlParams = new URLSearchParams(window.location.search);
   // id と userId のどちらで指定されても取得できるように修正しています
-  let myUserId = urlParams.get('id') || urlParams.get('userId');
+  myUserId = urlParams.get('id') || urlParams.get('userId');
 
   // 2. URLにIDがなく、LIFF IDが設定されている場合はLINEからIDを自動取得
   if (!myUserId && CONFIG_LIFF_ID) {
