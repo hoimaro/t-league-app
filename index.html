@@ -181,7 +181,7 @@
     </div>
 
     <!-- ④ 符の決定と符ボタン -->
-    <div style="margin-bottom:5px; text-align:left; font-size:14px; font-weight:bold;">符の決定</div>
+    <div id="fuLabel" style="margin-bottom:5px; text-align:left; font-size:14px; font-weight:bold;">符の決定</div>
     <div id="fuButtonsArea" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:15px;"></div>
 
     <!-- アガリ者選択 -->
@@ -834,9 +834,21 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
         sendMatchDataToGAS(globalYakuArray, totalHan, autoFu, isOya, isTsumo);
         popup.style.display = "none";
       };
+      
+      // ▼▼▼ 符のボタンが不要なときはラベルごと隠す ▼▼▼
+      const fuLabel = document.getElementById("fuLabel");
+      if (fuLabel) fuLabel.style.display = "none";
+      buttonsArea.style.display = "none";
+      // ▲▲▲
     } 
     // 符計算が必要な場合
     else {
+      // ▼▼▼ 符のボタンが必要なときはラベルを表示する ▼▼▼
+      const fuLabel = document.getElementById("fuLabel");
+      if (fuLabel) fuLabel.style.display = "block";
+      buttonsArea.style.display = "grid"; 
+      // ▲▲▲
+
       let maxFu = 70;
       let defaultFu = 30;
       const max2KoutsuYaku = ["混全帯么九", "純全帯幺九", "三色同順", "一気通貫", "混全帯么九", "純全帯么九"];
