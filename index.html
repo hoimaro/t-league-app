@@ -896,8 +896,21 @@ async function sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo) {
 
   const matchRecord = {
     action: "recordMatch",
-    matchData: ["A_20260708_01", "A", 1, 0, 0, (isTsumo ? "ツモ" : "ロン"), "自分", "対面", totalHan, scorePoint, ""], 
-    yakuData: yakuArray.map(yaku => ({ matchId: "A_20260708_01", winner: "自分", yaku: yaku }))
+    // 卓の最新データをまるごと添付
+    currentData: JSON.stringify(currentTableData), 
+    
+    // アガリの内容（風で指定することでGAS側で確実な足し引きが可能に）
+    agariData: JSON.stringify({
+      winner: selectedWinnerWind, // 例: "東"（自分または代理で選んだ人）
+      type: isTsumo ? "ツモ" : "ロン",
+      loser: isTsumo ? null : selectedLoserWind, // 例: "西"（ロンの場合の放銃者）
+      points: scorePoint,         // 打点（例: 8000）
+      han: totalHan,              // 翻数
+      fu: selectedFu              // 符数
+    }),
+
+    // スプレッドシート履歴用データ
+    yakuData: yakuArray.map(yaku => ({ matchId: currentTableData.tableId, winner: selectedWinnerWind, yaku: yaku }))
   };
 
   try {
