@@ -796,17 +796,30 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
   // 通常の役が認識されている場合のUI（既存）
   else {
     let hanText = `${totalHan}翻`;
+
+    let scaleText = "";
+    if (totalHan >= 13) scaleText = " (役満)";
+    else if (totalHan >= 11) scaleText = " (三倍満)";
+    else if (totalHan >= 8) scaleText = " (倍満)";
+    else if (totalHan >= 6) scaleText = " (跳満)";
+    else if (totalHan === 5) scaleText = " (満貫)";
+
+    if (scaleText !== "") {
+      // 翻数より少し小さめの文字で横に付与します
+      hanText += `<span style="font-size:16px; color:#666; font-weight:normal;">${scaleText}</span>`;
+    }
+
     if (isKuiseagariApplied) {
-      hanText += `<span style="font-size:14px; color:#555;"> (食い下がり)</span>`;
+      hanText += `<span style="font-size:14px; color:#555; font-weight:normal;"> ※食い下がり</span>`;
     }
     
     infoText.innerHTML = `確定役: ${yakuArray.join(", ")}`;
     const hanDisp = document.getElementById("hanDisplay");
     if (hanDisp) {
-        hanDisp.textContent = hanText;
-        hanDisp.style.fontSize = "22px"; // フォントサイズを大きく指定
+        hanDisp.innerHTML = hanText; // HTMLタグを認識させるため innerHTML に変更
+        hanDisp.style.fontSize = "22px"; 
     }
-    buttonsArea.style.display = "grid"; // gridレイアウトに変更
+    buttonsArea.style.display = "grid";
     buttonsArea.style.gap = "5px";
     
     // 自動計算可能な場合
@@ -1034,8 +1047,6 @@ async function sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo) {
   const scorePoint = scoreResult.total; 
   const scoreText = scoreResult.text;   
   
-  showResultView(`送信しています...<br>${yakuArray.join(", ")}<br>${totalHan}翻 ${fu}符`, "#ffc107", "#000");
-
 // 1. 新しく追加するプルダウンから、アガリ者と放銃者の「風」を取得
   const selectedWinnerWind = document.getElementById("selectWinner").value;
   const selectedLoserWind = document.getElementById("selectLoser").value;
