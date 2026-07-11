@@ -1,46 +1,22 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
+<meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>T-LEAGUE 対局管理</title>
   <style>
-    /* 全体・麻雀卓のレイアウト */
+    /* 全体・基本レイアウト */
     body { font-family: sans-serif; background: #f0f2f5; text-align: center; color: #333; margin: 0; padding: 20px; }
-    .table-container { 
-      position: relative; width: 340px; height: 340px; margin: 20px auto; 
-      background: #2e7d32; border-radius: 15px; border: 6px solid #5d4037; 
-      box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-    }
     
-    /* 座席UI */
-    .seat { 
-      position: absolute; width: 90px; height: 46px; background: #1a1a1a; color: #fff;
-      border-radius: 6px; display: flex; flex-direction: column; justify-content: center; 
-      font-size: 12px; cursor: pointer; border: 2px solid #1a1a1a;
-    }
-    .seat.active-oya { border: 2px solid #ff5252; color: #ff5252; font-weight: bold; } /* 親マークの代わり */
-    .seat-top { top: 10px; left: 125px; }
-    .seat-bottom { bottom: 10px; left: 125px; }
-    .seat-left { top: 147px; left: 10px; }
-    .seat-right { top: 147px; right: 10px; }
-
-    /* 中央情報エリア */
-    .center-info { 
-      position: absolute; top: 110px; left: 110px; width: 120px; height: 120px; 
-      background: #e0e0e0; border-radius: 10px; display: flex; flex-direction: column; 
-      justify-content: center; font-size: 14px; font-weight: bold; color: #000;
-    }
-    .center-info div { margin: 2px 0; }
-
     /* コントロール・ログエリア */
     .controls { margin-top: 20px; }
     button { padding: 12px 24px; font-size: 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
     #micBtn { background: #007bff; color: white; width: 260px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     #micBtn:disabled { background: #999; cursor: not-allowed; }
     
+    .box-title { font-weight: bold; margin-top: 20px; }
     #logArea { 
-      margin: 20px auto; width: 90%; max-width: 340px; height: 120px; 
+      margin: 10px auto; width: 90%; max-width: 340px; height: 120px; 
       background: #fff; color: #333; text-align: left; padding: 12px; 
       border-radius: 8px; border: 1px solid #ccc; overflow-y: auto; font-size: 14px;
     }
@@ -49,53 +25,57 @@
 </head>
 <body>
   <div id="lobbyView" style="padding: 20px; text-align: center;">
-  <h2>🀄 麻雀卓の管理</h2>
-  <p id="lobbyStatus">状態を確認中...</p>
-  
-  <div id="createTableArea" style="display:none; margin-top:30px; padding:15px; border:1px solid #ccc; border-radius:8px; background:#f9f9f9;">
-    <h3>🆕 新しい卓を作成（ホスト用）</h3>
-    <p style="font-size:12px; color:#666;">東家（起家）から順番にメンバーを選択してください</p>
-    <div style="margin: 10px 0;">東家: <select id="selEast"><option value="">読み込み中...</option></select></div>
-    <div style="margin: 10px 0;">南家: <select id="selSouth"><option value="">読み込み中...</option></select></div>
-    <div style="margin: 10px 0;">西家: <select id="selWest"><option value="">読み込み中...</option></select></div>
-    <div style="margin: 10px 0;">北家: <select id="selNorth"><option value="">読み込み中...</option></select></div>
-    <button id="btnCreateTable" style="margin-top:15px; padding:10px 20px; background:#007bff; color:#fff; border:none; border-radius:5px; font-size:16px; cursor:pointer;">この4人で対局開始</button>
+    <h2>🀄 麻雀卓の管理</h2>
+    <p id="lobbyStatus">状態を確認中...</p>
+    
+    <div id="createTableArea" style="display:none; margin-top:30px; padding:15px; border:1px solid #ccc; border-radius:8px; background:#f9f9f9;">
+      <h3>🆕 新しい卓を作成（ホスト用）</h3>
+      <p style="font-size:12px; color:#666;">東家（起家）から順番にメンバーを選択してください</p>
+      <div style="margin: 10px 0;">東家: <select id="selEast"><option value="">読み込み中...</option></select></div>
+      <div style="margin: 10px 0;">南家: <select id="selSouth"><option value="">読み込み中...</option></select></div>
+      <div style="margin: 10px 0;">西家: <select id="selWest"><option value="">読み込み中...</option></select></div>
+      <div style="margin: 10px 0;">北家: <select id="selNorth"><option value="">読み込み中...</option></select></div>
+      <button id="btnCreateTable" style="margin-top:15px; padding:10px 20px; background:#007bff; color:#fff; border:none; border-radius:5px; font-size:16px; cursor:pointer;">この4人で対局開始</button>
+    </div>
   </div>
-</div>
 
-<div id="mainGameView" style="display: none;">
-  <h2>T-LEAGUE 対局管理</h2>
-  <div class="mahjong-table-container" style="background:#437c43; width:100%; max-width:400px; margin:0 auto; aspect-ratio:1/1; border:8px solid #5d4037; border-radius:15px; position:relative; box-sizing:border-box; padding:15px;">
-    
-    <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:#e0e0e0; width:35%; height:35%; border-radius:10px; display:flex; flex-direction:column; justify-content:center; align-items:center; font-weight:bold; font-size:16px; line-height:1.4; box-shadow:0 2px 5px rgba(0,0,0,0.2);">
-      <span id="uiKyoku">東1局</span>
-      <span id="uiHonba">0本場</span>
-      <span id="uiKyotaku" style="font-size:12px; color:#333;">供託: 0</span>
-    </div>
-    
-    <div id="boxToimen" style="position:absolute; top:15px; left:50%; transform:translateX(-50%); background:#1a1a1a; color:#fff; padding:8px 15px; border-radius:5px; text-align:center; min-width:80px;">
-      <div class="p-name" style="font-size:14px;">対面</div>
-      <div class="p-score" style="font-size:16px; font-weight:bold; color:#ffeb3b;">25000</div>
-    </div>
-    
-    <div id="boxShimocha" style="position:absolute; top:50%; right:15px; transform:translateY(-50%); background:#1a1a1a; color:#fff; padding:8px 15px; border-radius:5px; text-align:center; min-width:80px;">
-      <div class="p-name" style="font-size:14px;">下家</div>
-      <div class="p-score" style="font-size:16px; font-weight:bold; color:#ffeb3b;">25000</div>
-    </div>
-    
-    <div id="boxKamicha" style="position:absolute; top:50%; left:15px; transform:translateY(-50%); background:#1a1a1a; color:#fff; padding:8px 15px; border-radius:5px; text-align:center; min-width:80px;">
-      <div class="p-name" style="font-size:14px;">上家</div>
-      <div class="p-score" style="font-size:16px; font-weight:bold; color:#ffeb3b;">25000</div>
-    </div>
-    
-    <div id="boxJibun" style="position:absolute; bottom:15px; left:50%; transform:translateX(-50%); background:#1a1a1a; color:#fff; padding:8px 15px; border-radius:5px; text-align:center; min-width:80px; border:2px solid #e57373; box-shadow:0 0 8px #e57373;">
-      <div class="p-name" style="font-size:14px; color:#e57373; font-weight:bold;">自分</div>
-      <div class="p-score" style="font-size:16px; font-weight:bold; color:#ffeb3b;">25000</div>
+  <div id="mainGameView" style="display: none;">
+    <h2>T-LEAGUE 対局管理</h2>
+    <!-- ▼ スマホでも絶対に重ならないようにサイズを最適化した麻雀卓 ▼ -->
+    <div class="mahjong-table-container" style="background:#437c43; width:100%; max-width:400px; margin:0 auto; aspect-ratio:1/1; border:8px solid #5d4037; border-radius:15px; position:relative; box-sizing:border-box; padding:10px;">
+      
+      <!-- 中央の局情報（サイズを100pxに固定） -->
+      <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:#e0e0e0; width:100px; height:100px; border-radius:10px; display:flex; flex-direction:column; justify-content:center; align-items:center; font-weight:bold; font-size:14px; line-height:1.4; box-shadow:0 2px 5px rgba(0,0,0,0.2);">
+        <span id="uiKyoku">東1局</span>
+        <span id="uiHonba">0本場</span>
+        <span id="uiKyotaku" style="font-size:12px; color:#333;">供託: 0</span>
+      </div>
+      
+      <!-- 奥（対面） -->
+      <div id="boxToimen" style="position:absolute; top:10px; left:50%; transform:translateX(-50%); background:#1a1a1a; color:#fff; padding:6px 10px; border-radius:5px; text-align:center; min-width:70px;">
+        <div class="p-name" style="font-size:13px;">対面</div>
+        <div class="p-score" style="font-size:15px; font-weight:bold; color:#ffeb3b;">25000</div>
+      </div>
+      
+      <!-- 右（下家） -->
+      <div id="boxShimocha" style="position:absolute; top:50%; right:8px; transform:translateY(-50%); background:#1a1a1a; color:#fff; padding:6px 10px; border-radius:5px; text-align:center; min-width:70px;">
+        <div class="p-name" style="font-size:13px;">下家</div>
+        <div class="p-score" style="font-size:15px; font-weight:bold; color:#ffeb3b;">25000</div>
+      </div>
+      
+      <!-- 左（上家） -->
+      <div id="boxKamicha" style="position:absolute; top:50%; left:8px; transform:translateY(-50%); background:#1a1a1a; color:#fff; padding:6px 10px; border-radius:5px; text-align:center; min-width:70px;">
+        <div class="p-name" style="font-size:13px;">上家</div>
+        <div class="p-score" style="font-size:15px; font-weight:bold; color:#ffeb3b;">25000</div>
+      </div>
+      
+      <!-- 手前（自分） -->
+      <div id="boxJibun" style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); background:#1a1a1a; color:#fff; padding:6px 10px; border-radius:5px; text-align:center; min-width:70px; border:2px solid #e57373; box-shadow:0 0 8px #e57373;">
+        <div class="p-name" style="font-size:13px; color:#e57373; font-weight:bold;">自分</div>
+        <div class="p-score" style="font-size:15px; font-weight:bold; color:#ffeb3b;">25000</div>
+      </div>
     </div>
   </div>
-  <div style="text-align:center; margin-top:20px;">
-     </div>
-</div>
 
   <div class="controls">
     <button id="micBtn" disabled>システムの準備中...</button>
@@ -106,7 +86,7 @@
       <h3 style="margin-top:0; color:#333; font-size:18px;">認識結果の確認</h3>
       <p id="confirmPopupInfo" style="font-size:16px; color:#333; margin-bottom:15px; font-weight:bold;"></p>
       
-      <!-- 符選択エリア (ルート2用) -->
+      <!-- 符選択エリア -->
       <div id="fuButtonsArea" style="display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-bottom:15px;"></div>
       
       <!-- アクションエリア -->
@@ -127,7 +107,7 @@
 
   <div class="box-title">【デバッグ・認識結果ログ】</div>
   <div id="logArea">辞書データをダウンロードしています...<br></div>
-
+  
 <script>
 // アプリ起動時に最初に呼び出す関数（LIFF連動版）
 const CONFIG_LIFF_ID = "2010600263-fW0rPubj"; 
