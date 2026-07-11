@@ -202,7 +202,7 @@ function setupMahjongTableUI(tableData, myUserId) {
   document.getElementById("lobbyView").style.display = "none";
   document.getElementById("mainGameView").style.display = "block";
 
-  // 1. 各プレイヤー情報に「風（東・南・西・北）」のデータを追加して配列化
+  // ▼ 【重要】ここで wind: "東" などのデータをちゃんと持たせています ▼
   const players = [
     { id: tableData.eastId, name: tableData.eastName, score: tableData.eastScore, wind: "東" },
     { id: tableData.southId, name: tableData.southName, score: tableData.southScore, wind: "南" },
@@ -210,11 +210,9 @@ function setupMahjongTableUI(tableData, myUserId) {
     { id: tableData.northId, name: tableData.northName, score: tableData.northScore, wind: "北" }
   ];
 
-  // 2. 自分の席（インデックス）を探す
   let myIndex = players.findIndex(p => p.id === myUserId);
-  if (myIndex === -1) myIndex = 0; // 見つからない場合は仮に東家視点
+  if (myIndex === -1) myIndex = 0; 
 
-  // 3. 画面の各位置（下・右・上・左）にデータを割り当て
   const positions = [
     { pos: "Bottom", data: players[(myIndex) % 4] },
     { pos: "Right",  data: players[(myIndex + 1) % 4] },
@@ -222,63 +220,60 @@ function setupMahjongTableUI(tableData, myUserId) {
     { pos: "Left",   data: players[(myIndex + 3) % 4] }
   ];
 
-  // 4. HTMLに書き込み
+  // 4. HTMLに書き込み（スマートデザイン版）
   positions.forEach(p => {
     let nameEl = document.getElementById(`name${p.pos}`) || document.getElementById(`playerName-${p.pos.toLowerCase()}`);
     let scoreEl = document.getElementById(`score${p.pos}`) || document.getElementById(`playerScore-${p.pos.toLowerCase()}`);
 
     if (nameEl) {
-      // 名前はシンプルに名前だけを入れる
       nameEl.textContent = p.data.name;
 
-      // 親要素（黒い四角の枠）を取得し、位置の基準（relative）にする
       let boxEl = nameEl.parentElement;
-      boxEl.style.position = "relative";
+      if (boxEl) {
+        boxEl.style.position = "relative";
 
-      // 既に風のマークがあれば一旦消す（画面更新時のダブり防止）
-      let oldBadge = boxEl.querySelector(".wind-badge");
-      if (oldBadge) oldBadge.remove();
+        let oldBadge = boxEl.querySelector(".wind-badge");
+        if (oldBadge) oldBadge.remove();
 
-      // 新しい風のマークを作成して左上に絶対配置（absolute）
-      let badge = document.createElement("div");
-      badge.className = "wind-badge";
-      badge.textContent = p.data.wind;
-      badge.style.position = "absolute";
-      badge.style.top = "4px";    // 上からのすき間
-      badge.style.left = "6px";   // 左からのすき間
-      badge.style.fontSize = "12px"; // 少し小さくスマートに
-      badge.style.color = "#FFD700"; // ゴールド色
-      badge.style.fontWeight = "bold";
-      
-      // 枠の中にシールのように貼り付ける
-      boxEl.appendChild(badge);
+        let badge = document.createElement("div");
+        badge.className = "wind-badge";
+        badge.textContent = p.data.wind; 
+        badge.style.position = "absolute";
+        badge.style.top = "2px";    // 少し上に微調整
+        badge.style.left = "4px";   // 少し左に微調整
+        badge.style.fontSize = "12px";
+        badge.style.color = "#FFD700";
+        badge.style.fontWeight = "bold";
+        badge.style.zIndex = "10";  // ▼ 【追加】絶対に背景の下に隠れないように手前へ出す
+        
+        boxEl.appendChild(badge);
+      }
     }
     
     if (scoreEl) {
-      // 25,000 のようにカンマをつけて見やすくする
       scoreEl.textContent = Number(p.data.score).toLocaleString(); 
-    }
-    // 5. 中央の局情報の更新（既存のコード）
-    let roundInfoEl = document.getElementById("roundInfo") || document.getElementById("centerInfo");
-    if (roundInfoEl) {
-      roundInfoEl.innerHTML = `${tableData.round}<br>${tableData.honba}本場<br>供託: ${tableData.kyotaku}`;
     }
   });
 
-  // ▼ 【今回追加】画面の一番下に現在の myUserId を表示する ▼
+  // 5. 中央の局情報の更新
+  let roundInfoEl = document.getElementById("roundInfo") || document.getElementById("centerInfo");
+  if (roundInfoEl) {
+    roundInfoEl.innerHTML = `${tableData.round}<br>${tableData.honba}本場<br>供託: ${tableData.kyotaku}`;
+  }
+
+  // 6. デバッグ用のID表示
   let debugIdEl = document.getElementById("debugUserIdView");
   if (!debugIdEl) {
     debugIdEl = document.createElement("div");
     debugIdEl.id = "debugUserIdView";
     debugIdEl.style.textAlign = "center";
     debugIdEl.style.fontSize = "12px";
-    debugIdEl.style.color = "#666"; // 目立ちすぎないグレー色
+    debugIdEl.style.color = "#666"; 
     debugIdEl.style.marginTop = "15px";
     document.getElementById("mainGameView").appendChild(debugIdEl);
   }
   debugIdEl.textContent = "【状態確認】現在のユーザーID: " + myUserId;
-
-} // ⬅️ setupMahjongTableUI 関数の終わりのカッコ
+}
 
 // UIの文字を書き換える補助関数
 function updateBox(elementId, name, score) {
