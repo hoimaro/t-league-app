@@ -257,22 +257,11 @@ function setupMahjongTableUI(tableData, myUserId) {
       scoreEl.textContent = Number(p.data.score).toLocaleString(); 
     }
     // 5. 中央の局情報の更新（既存のコード）
-  let roundInfoEl = document.getElementById("roundInfo") || document.getElementById("centerInfo");
-  if (roundInfoEl) {
-    roundInfoEl.innerHTML = `${tableData.round}<br>${tableData.honba}本場<br>供託: ${tableData.kyotaku}`;
-  }
+    let roundInfoEl = document.getElementById("roundInfo") || document.getElementById("centerInfo");
+    if (roundInfoEl) {
+      roundInfoEl.innerHTML = `${tableData.round}<br>${tableData.honba}本場<br>供託: ${tableData.kyotaku}`;
+    }
   });
-
-  // 5. 中央の局情報の更新
-  let roundInfoEl = document.getElementById("roundInfo") || document.getElementById("centerInfo");
-  if (roundInfoEl) {
-    roundInfoEl.innerHTML = `${tableData.round}<br>${tableData.honba}本場<br>供託: ${tableData.kyotaku}`;
-  }
-// 5. 中央の局情報の更新（既存のコード）
-  let roundInfoEl = document.getElementById("roundInfo") || document.getElementById("centerInfo");
-  if (roundInfoEl) {
-    roundInfoEl.innerHTML = `${tableData.round}<br>${tableData.honba}本場<br>供託: ${tableData.kyotaku}`;
-  }
 
   // ▼ 【今回追加】画面の一番下に現在の myUserId を表示する ▼
   let debugIdEl = document.getElementById("debugUserIdView");
