@@ -20,22 +20,76 @@
       background: #fff; color: #333; text-align: left; padding: 12px; 
       border-radius: 8px; border: 1px solid #ccc; overflow-y: auto; font-size: 14px;
     }
+    
+    /* モダンなセレクトボックス ▼ */
+    .select-group {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 15px;
+      gap: 10px;
+    }
+    .select-label {
+      font-weight: bold;
+      color: #555;
+      width: 45px; /* 縦のラインを綺麗に揃える */
+      text-align: right;
+    }
+    .modern-select {
+      appearance: none; /* デフォルトのダサい矢印を消す */
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-color: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px; /* 丸みを持たせる */
+      padding: 12px 40px 12px 16px;
+      font-size: 15px;
+      color: #333;
+      width: 220px; /* 幅を統一 */
+      cursor: pointer;
+      outline: none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      /* スマートな矢印を背景画像として設定 */
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 16px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .modern-select:focus {
+      border-color: #007bff; /* 選択時に青く光らせる */
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+    }
   </style>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
-<div id="lobbyView" style="padding: 20px; text-align: center;">
+    <div id="lobbyView" style="padding: 20px; text-align: center;">
     <h2>🀄 麻雀卓の管理</h2>
     <p id="lobbyStatus">状態を確認中...</p>
     
-    <div id="createTableArea" style="display:none; margin-top:30px; padding:15px; border:1px solid #ccc; border-radius:8px; background:#f9f9f9;">
-      <h3>🆕 新しい卓を作成（ホスト用）</h3>
-      <p style="font-size:12px; color:#666;">東家（起家）から順番にメンバーを選択してください</p>
-      <div style="margin: 10px 0;">東家: <select id="selEast"><option value="">読み込み中...</option></select></div>
-      <div style="margin: 10px 0;">南家: <select id="selSouth"><option value="">読み込み中...</option></select></div>
-      <div style="margin: 10px 0;">西家: <select id="selWest"><option value="">読み込み中...</option></select></div>
-      <div style="margin: 10px 0;">北家: <select id="selNorth"><option value="">読み込み中...</option></select></div>
-      <button id="btnCreateTable" style="margin-top:15px; padding:10px 20px; background:#007bff; color:#fff; border:none; border-radius:5px; font-size:16px; cursor:pointer;">この4人で対局開始</button>
+    <div id="createTableArea" style="display:none; margin-top:30px; padding:25px 15px; border:none; border-radius:12px; background:#fff; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+      <h3 style="margin-top:0; color:#333; font-size:18px;">🆕 新しい卓を作成</h3>
+      <p style="font-size:13px; color:#666; margin-bottom:20px;">東家（起家）から順番にメンバーを選択してください</p>
+      
+      <div class="select-group">
+        <span class="select-label">東家:</span>
+        <select id="selEast" class="modern-select"><option value="">-- 選択してください --</option></select>
+      </div>
+      <div class="select-group">
+        <span class="select-label">南家:</span>
+        <select id="selSouth" class="modern-select"><option value="">-- 選択してください --</option></select>
+      </div>
+      <div class="select-group">
+        <span class="select-label">西家:</span>
+        <select id="selWest" class="modern-select"><option value="">-- 選択してください --</option></select>
+      </div>
+      <div class="select-group">
+        <span class="select-label">北家:</span>
+        <select id="selNorth" class="modern-select"><option value="">-- 選択してください --</option></select>
+      </div>
+      
+      <button id="btnCreateTable" style="margin-top:20px; padding:12px 24px; background:#007bff; color:#fff; border:none; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer; width:100%; max-width:260px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">この4人で対局開始</button>
     </div>
   </div>
 
