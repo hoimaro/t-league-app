@@ -810,10 +810,19 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
     }
 
     if (isKuiseagariApplied) {
-      hanText += `<span style="font-size:14px; color:#555; font-weight:normal;"> ※食い下がり</span>`;
+      hanText += `<span style="font-size:14px; color:#555; font-weight:normal;"> (食い下がり)</span>`;
     }
     
-    infoText.innerHTML = `確定役: ${yakuArray.join(", ")}`;
+    // ▼▼▼ 役の表示をモダンなタグ（バッジ）風に変更 ▼▼▼
+    let yakuBadges = yakuArray.map(yaku => 
+      `<span style="display:inline-block; padding:2px 8px; background:#fff; border:1px solid #ccc; border-radius:12px; font-size:12px; font-weight:normal; color:#333; box-shadow:0 1px 2px rgba(0,0,0,0.05);">${yaku}</span>`
+    ).join("");
+    
+    infoText.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:5px; justify-content:center; align-items:center;">
+                            <span style="font-size:12px; color:#666; font-weight:normal; margin-right:2px;">確定役:</span>${yakuBadges}
+                          </div>`;
+    // ▲▲▲ 変更ここまで ▲▲▲
+
     const hanDisp = document.getElementById("hanDisplay");
     if (hanDisp) {
         hanDisp.innerHTML = hanText; // HTMLタグを認識させるため innerHTML に変更
