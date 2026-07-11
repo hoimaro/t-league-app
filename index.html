@@ -234,7 +234,6 @@ function setupMahjongTableUI(tableData, myUserId) {
       if (scoreEl) scoreEl.textContent = Number(p.data.score).toLocaleString();
 
       // 風バッジの追加
-      boxEl.style.position = "relative";
       let oldBadge = boxEl.querySelector(".wind-badge");
       if (oldBadge) oldBadge.remove();
 
