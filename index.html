@@ -130,15 +130,40 @@
       </div>
     </div> <!-- mahjong-table-container の終わり -->
 
-    <!-- ▼ mainGameView の中にマイクとログを格納しました ▼ -->
-    <div class="controls">
+<!-- ▼ mainGameView の中にマイクとログを格納しました ▼ -->
+    <div class="controls" style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
       <button id="micBtn" disabled>システムの準備中...</button>
+      
+      <!-- ▼ 【追加】ここに流局ボタンが入ります ▼ -->
+      <button id="btnRyukyoku" style="background:#607d8b; color:white; width:260px; box-shadow:0 4px 6px rgba(0,0,0,0.1);" onclick="openRyukyokuPopup()">🤝 流局（ノーテン罰符）</button>
     </div>
 
     <div class="box-title">【デバッグ・認識結果ログ】</div>
     <div id="logArea">辞書データをダウンロードしています...<br></div>
   </div> <!-- ⬅️ ★ mainGameView を閉じる位置をここに移動しました ★ -->
   
+  <!-- ▼ 【追加】ここに流局用のポップアップ画面が入ります ▼ -->
+  <div id="ryukyokuPopup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:300; justify-content:center; align-items:center;">
+    <div style="background:#fff; padding:20px; border-radius:12px; width:90%; max-width:320px; text-align:center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+      <h3 style="margin-top:0; color:#333; font-size:18px;">流局（テンパイ申告）</h3>
+      <p style="font-size:13px; color:#666; margin-bottom:15px;">テンパイしている人を選択してください</p>
+      
+      <!-- JSでここに4人分のボタンを作ります -->
+      <div id="ryukyokuMembers" style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px;"></div>
+      
+      <!-- 計算結果のプレビュー -->
+      <div id="ryukyokuPreview" style="font-size:14px; font-weight:bold; color:#d32f2f; margin-bottom:15px; background:#ffebee; padding:10px; border-radius:5px;">
+        全員ノーテン（点数移動なし）
+      </div>
+      
+      <div style="display:flex; justify-content:space-between; gap:10px;">
+        <button onclick="submitRyukyoku()" style="flex:1; background:#28a745; color:#fff; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">これで確定する</button>
+        <button onclick="document.getElementById('ryukyokuPopup').style.display='none'" style="flex:1; background:#6c757d; color:#fff; padding:12px; border:none; border-radius:5px; cursor:pointer;">キャンセル</button>
+      </div>
+    </div>
+  </div>
+  <!-- ▲ 追加ここまで ▲ -->
+
   <div id="confirmPopup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100; justify-content:center; align-items:center;">
     <div style="background:#fff; padding:20px; border-radius:10px; width:90%; max-width:320px; text-align:center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
       <h3 style="margin-top:0; color:#333; font-size:18px;">認識結果の確認</h3>
@@ -162,7 +187,6 @@
   <div id="resultView" style="display:none; position:fixed; top:20px; left:50%; transform:translateX(-50%); color:#fff; padding:15px 20px; border-radius:8px; z-index:200; width:80%; max-width:300px; text-align:center; box-shadow:0 4px 6px rgba(0,0,0,0.3); font-weight:bold;">
     <div id="resultText"></div>
   </div>
-
 <script>
 // アプリ起動時に最初に呼び出す関数（LIFF連動版）
 const CONFIG_LIFF_ID = "2010600263-fW0rPubj"; 
@@ -230,9 +254,12 @@ async function initApp() {
   }
 }
 
-// 自分の席（東・南・西・北）を基準にして、名前と点数をUIにハメ込む神ロジック
+let currentTableData = null; // 卓のデータを一時保存しておく変数
+let tenpaiStatus = {};
+
 // メイン画面のUIをセットアップする関数
 function setupMahjongTableUI(tableData, myUserId) {
+  currentTableData = tableData;
   document.getElementById("lobbyView").style.display = "none";
   document.getElementById("mainGameView").style.display = "block";
 
@@ -925,7 +952,88 @@ function log(message) {
     logArea.scrollTop = logArea.scrollHeight;
   }
 }
+  // ポップアップを開く関数
+function openRyukyokuPopup() {
+  if (!currentTableData) return;
+  
+  // 初期状態は全員ノーテンとする
+  tenpaiStatus = { "東": false, "南": false, "西": false, "北": false };
+  
+  const membersDiv = document.getElementById("ryukyokuMembers");
+  membersDiv.innerHTML = "";
+  
+  const players = [
+    { wind: "東", name: currentTableData.eastName },
+    { wind: "南", name: currentTableData.southName },
+    { wind: "西", name: currentTableData.westName },
+    { wind: "北", name: currentTableData.northName }
+  ];
+  
+  // 4人分のトグル（オンオフ）ボタンを作成
+  players.forEach(p => {
+    let btn = document.createElement("button");
+    btn.textContent = `${p.wind}家：${p.name} (ノーテン)`;
+    btn.style.padding = "12px";
+    btn.style.borderRadius = "8px";
+    btn.style.border = "2px solid #ccc";
+    btn.style.background = "#f8f9fa";
+    btn.style.color = "#666";
+    btn.style.fontWeight = "bold";
+    btn.style.cursor = "pointer";
+    
+    // ボタンを押した時の色の変化
+    btn.onclick = () => {
+      tenpaiStatus[p.wind] = !tenpaiStatus[p.wind]; // 状態を裏返す
+      if (tenpaiStatus[p.wind]) {
+        btn.textContent = `${p.wind}家：${p.name} 【テンパイ】`;
+        btn.style.background = "#e3f2fd";
+        btn.style.borderColor = "#2196f3";
+        btn.style.color = "#1565c0";
+      } else {
+        btn.textContent = `${p.wind}家：${p.name} (ノーテン)`;
+        btn.style.background = "#f8f9fa";
+        btn.style.borderColor = "#ccc";
+        btn.style.color = "#666";
+      }
+      updateRyukyokuPreview(); // プレビューを再計算
+    };
+    membersDiv.appendChild(btn);
+  });
+  
+  updateRyukyokuPreview();
+  document.getElementById("ryukyokuPopup").style.display = "flex";
+}
 
+// プレビュー（点数移動）の計算と表示
+function updateRyukyokuPreview() {
+  const tenpaiCount = Object.values(tenpaiStatus).filter(v => v).length;
+  let text = "";
+  
+  if (tenpaiCount === 0 || tenpaiCount === 4) {
+    text = "全員" + (tenpaiCount === 0 ? "ノーテン" : "テンパイ") + "（点数移動なし）";
+  } else if (tenpaiCount === 1) {
+    text = "テンパイ1人（＋3,000） / ノーテン3人（－1,000）";
+  } else if (tenpaiCount === 2) {
+    text = "テンパイ2人（＋1,500） / ノーテン2人（－1,500）";
+  } else if (tenpaiCount === 3) {
+    text = "テンパイ3人（＋1,000） / ノーテン1人（－3,000）";
+  }
+  
+  document.getElementById("ryukyokuPreview").textContent = text;
+}
+
+// 「これで確定する」ボタンを押したときの処理
+function submitRyukyoku() {
+  const tenpaiCount = Object.values(tenpaiStatus).filter(v => v).length;
+  
+  if (!confirm("この内容で流局処理を確定しますか？\n（親のテンパイ有無により、本場や親が自動で移行します）")) return;
+  
+  document.getElementById("ryukyokuPopup").style.display = "none";
+  
+  // ★ ここでGAS（スプレッドシート）にデータを送信します ★
+  alert("【テスト】以下のデータをGASへ送信して点数を計算します。\n\n" + JSON.stringify(tenpaiStatus, null, 2));
+}
+  
 window.onload = () => {
   loadDictionary();
 };
