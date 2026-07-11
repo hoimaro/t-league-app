@@ -237,7 +237,8 @@ function setupMahjongTableUI(tableData, myUserId) {
   let uiHonba = document.getElementById("uiHonba");
   let uiKyotaku = document.getElementById("uiKyotaku");
   
-  if (uiKyoku) uiKyoku.textContent = tableData.round;
+  // ▼ データのキー名が違う場合や、空欄だった場合の保険として「東1局」を用意しておく
+  if (uiKyoku) uiKyoku.textContent = tableData.kyoku || tableData.round || "東1局";
   if (uiHonba) uiHonba.textContent = tableData.honba + "本場";
   if (uiKyotaku) uiKyotaku.textContent = "供託: " + tableData.kyotaku;
 
