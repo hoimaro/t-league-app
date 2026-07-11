@@ -813,10 +813,37 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
       hanText += `<span style="font-size:14px; color:#555; font-weight:normal;"> (食い下がり)</span>`;
     }
     
-    // ▼▼▼ 役の表示をモダンなタグ（バッジ）風に変更 ▼▼▼
-    let yakuBadges = yakuArray.map(yaku => 
-      `<span style="display:inline-block; padding:2px 8px; background:#fff; border:1px solid #ccc; border-radius:12px; font-size:12px; font-weight:normal; color:#333; box-shadow:0 1px 2px rgba(0,0,0,0.05);">${yaku}</span>`
-    ).join("");
+    // ▼▼▼ 役の表示を難易度によって色分けするモダンなタグに変更 ▼▼▼
+    let yakuBadges = yakuArray.map(yaku => {
+      let han = YAKU_HAN[yaku] || 1; // 役の翻数を取得
+      let bg = "#fff", border = "#ccc", color = "#333", extra = "";
+
+      // 翻数に応じたカラーテーマの設定
+      if (han === 13) {
+        // 役満（黄金グラデーション）
+        bg = "linear-gradient(135deg, #FFD700, #FF8C00)"; border = "transparent"; color = "#fff";
+        extra = "font-weight:bold; box-shadow:0 2px 4px rgba(255,140,0,0.4); text-shadow:1px 1px 1px rgba(0,0,0,0.3);";
+      } else if (han >= 5) {
+        // 5翻以上（レッド系）
+        bg = "#fce4ec"; border = "#f48fb1"; color = "#c2185b";
+      } else if (han >= 3) {
+        // 3〜4翻（オレンジ系）
+        bg = "#fff3e0"; border = "#ffcc80"; color = "#e65100";
+      } else if (han === 2) {
+        // 2翻（グリーン系）
+        bg = "#e8f5e9"; border = "#a5d6a7"; color = "#2e7d32";
+      } else {
+        // 1翻（ブルー系）
+        bg = "#e3f2fd"; border = "#90caf9"; color = "#1565c0";
+      }
+
+      // 「ドラ」が含まれる場合はボーナスカラー（イエロー系）で上書き
+      if (yaku.includes("ドラ")) {
+        bg = "#fffde7"; border = "#fff59d"; color = "#f57f17";
+      }
+
+      return `<span style="display:inline-block; padding:2px 8px; background:${bg}; border:1px solid ${border}; border-radius:12px; font-size:12px; font-weight:normal; color:${color}; box-shadow:0 1px 2px rgba(0,0,0,0.05); ${extra}">${yaku}</span>`;
+    }).join("");
     
     infoText.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:5px; justify-content:center; align-items:center;">
                             <span style="font-size:12px; color:#666; font-weight:normal; margin-right:2px;">確定役:</span>${yakuBadges}
