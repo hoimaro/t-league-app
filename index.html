@@ -168,26 +168,25 @@
 const CONFIG_LIFF_ID = "2010600263-fW0rPubj"; 
 
 async function initApp() {
-  let myUserId = new URLSearchParams(window.location.search).get('id');
-
-  // 1. URLパラメータ（?userId=xxx）からID取得を試みる（PCテスト用）
+  // 1. URLパラメータ（?id=DUMMY_1 など）からID取得を試みる
   const urlParams = new URLSearchParams(window.location.search);
-  myUserId = urlParams.get('userId');
+  // id と userId のどちらで指定されても取得できるように修正しています
+  let myUserId = urlParams.get('id') || urlParams.get('userId');
 
   // 2. URLにIDがなく、LIFF IDが設定されている場合はLINEからIDを自動取得
   if (!myUserId && CONFIG_LIFF_ID) {
     try {
       await liff.init({ liffId: CONFIG_LIFF_ID });
       
-      // ▼ 【今回修正】ログイン状態を判定する処理を追加 ▼
+      // ログイン状態を判定する処理
       if (liff.isLoggedIn()) {
         // すでに連携済みなら、そのままIDを取得
         const profile = await liff.getProfile();
         myUserId = profile.userId;
       } else {
-        // まだ連携していない（Safariで開いたばかり）なら、LINEの認証画面を呼び出す
+        // まだ連携していないなら、LINEの認証画面を呼び出す
         liff.login();
-        return; // 認証が終わると自動でページがリロードされるので、ここで処理を一旦止める
+        return; 
       }
       
     } catch (err) {
@@ -206,7 +205,7 @@ async function initApp() {
   
   // 4. 最終的にIDが全く取得できない場合の安全処理
   if (!myUserId) {
-    document.getElementById("lobbyStatus").innerHTML = "⚠️ ユーザーIDが取得できません。<br>LINEから開き直すか、URLの末尾に ?userId=GUEST_1 などを付けてください。";
+    document.getElementById("lobbyStatus").innerHTML = "⚠️ ユーザーIDが取得できません。<br>LINEから開き直すか、URLの末尾に ?id=DUMMY_1 などを付けてください。";
     loadHostInterface();
     return;
   }
