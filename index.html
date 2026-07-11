@@ -256,6 +256,11 @@ function setupMahjongTableUI(tableData, myUserId) {
       // 25,000 のようにカンマをつけて見やすくする
       scoreEl.textContent = Number(p.data.score).toLocaleString(); 
     }
+    // 5. 中央の局情報の更新（既存のコード）
+  let roundInfoEl = document.getElementById("roundInfo") || document.getElementById("centerInfo");
+  if (roundInfoEl) {
+    roundInfoEl.innerHTML = `${tableData.round}<br>${tableData.honba}本場<br>供託: ${tableData.kyotaku}`;
+  }
   });
 
   // 5. 中央の局情報の更新
@@ -263,7 +268,26 @@ function setupMahjongTableUI(tableData, myUserId) {
   if (roundInfoEl) {
     roundInfoEl.innerHTML = `${tableData.round}<br>${tableData.honba}本場<br>供託: ${tableData.kyotaku}`;
   }
-}
+// 5. 中央の局情報の更新（既存のコード）
+  let roundInfoEl = document.getElementById("roundInfo") || document.getElementById("centerInfo");
+  if (roundInfoEl) {
+    roundInfoEl.innerHTML = `${tableData.round}<br>${tableData.honba}本場<br>供託: ${tableData.kyotaku}`;
+  }
+
+  // ▼ 【今回追加】画面の一番下に現在の myUserId を表示する ▼
+  let debugIdEl = document.getElementById("debugUserIdView");
+  if (!debugIdEl) {
+    debugIdEl = document.createElement("div");
+    debugIdEl.id = "debugUserIdView";
+    debugIdEl.style.textAlign = "center";
+    debugIdEl.style.fontSize = "12px";
+    debugIdEl.style.color = "#666"; // 目立ちすぎないグレー色
+    debugIdEl.style.marginTop = "15px";
+    document.getElementById("mainGameView").appendChild(debugIdEl);
+  }
+  debugIdEl.textContent = "【状態確認】現在のユーザーID: " + myUserId;
+
+} // ⬅️ setupMahjongTableUI 関数の終わりのカッコ
 
 // UIの文字を書き換える補助関数
 function updateBox(elementId, name, score) {
@@ -597,7 +621,6 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
   }
 }
 
-// 統合された確認・アクションポップアップ
 // 統合された確認・アクションポップアップ
 function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, isTsumo, isOya, yakuArray, isKuiseagariApplied) {
   const popup = document.getElementById('confirmPopup');
