@@ -95,7 +95,6 @@
 
   <div id="mainGameView" style="display: none;">
     <h2>T-LEAGUE 対局管理</h2>
-    <!-- ▼ スマホでも絶対に重ならないようにサイズを最適化した麻雀卓 ▼ -->
     <div class="mahjong-table-container" style="background:#437c43; width:100%; max-width:400px; margin:0 auto; aspect-ratio:1/1; border:8px solid #5d4037; border-radius:15px; position:relative; box-sizing:border-box; padding:10px;">
       
       <!-- 中央の局情報（サイズを100pxに固定） -->
@@ -130,19 +129,18 @@
       </div>
     </div> <!-- mahjong-table-container の終わり -->
 
-<!-- ▼ mainGameView の中にマイクとログを格納しました ▼ -->
     <div class="controls" style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
       <button id="micBtn" disabled>システムの準備中...</button>
       
-      <!-- ▼ 【追加】ここに流局ボタンが入ります ▼ -->
+      <!-- 流局ボタン -->
       <button id="btnRyukyoku" style="background:#607d8b; color:white; width:260px; box-shadow:0 4px 6px rgba(0,0,0,0.1);" onclick="openRyukyokuPopup()">🤝 流局（ノーテン罰符）</button>
     </div>
 
     <div class="box-title">【デバッグ・認識結果ログ】</div>
     <div id="logArea">辞書データをダウンロードしています...<br></div>
-  </div> <!-- ⬅️ ★ mainGameView を閉じる位置をここに移動しました ★ -->
+  </div>
   
-  <!-- ▼ 【追加】ここに流局用のポップアップ画面が入ります ▼ -->
+  <!-- ここに流局用のポップアップ画面が入ります  -->
   <div id="ryukyokuPopup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:300; justify-content:center; align-items:center;">
     <div style="background:#fff; padding:20px; border-radius:12px; width:90%; max-width:320px; text-align:center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
       <h3 style="margin-top:0; color:#333; font-size:18px;">流局（テンパイ申告）</h3>
@@ -162,7 +160,6 @@
       </div>
     </div>
   </div>
-  <!-- ▲ 追加ここまで ▲ -->
 
 <div id="confirmPopup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100; justify-content:center; align-items:center;">
     <div style="background:#fff; padding:20px; border-radius:10px; width:90%; max-width:320px; text-align:center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
@@ -172,7 +169,7 @@
       <!-- 符選択エリア -->
       <div id="fuButtonsArea" style="display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-bottom:15px;"></div>
       
-      <!-- ▼▼▼ ここから追加（アガリ者・放銃者の選択） ▼▼▼ -->
+      <!-- アガリ者・放銃者の選択） -->
       <div style="margin-bottom:10px; text-align:left;">
         <label style="font-size:14px; font-weight:bold;">アガリ者</label>
         <select id="selectWinner" style="width:100%; padding:8px; margin-top:5px; border-radius:5px; border:1px solid #ccc;">
@@ -184,15 +181,12 @@
       </div>
 
       <div id="loserArea" style="margin-bottom:15px; text-align:left;">
-        <label style="font-size:14px; font-weight:bold;">放銃者（ロンの場合）</label>
-        <select id="selectLoser" style="width:100%; padding:8px; margin-top:5px; border-radius:5px; border:1px solid #ccc;">
-          <option value="東">東家</option>
-          <option value="南">南家</option>
-          <option value="西">西家</option>
-          <option value="北">北家</option>
-        </select>
+        <label style="font-size:14px; font-weight:bold;">放銃者</label>
+        <!-- ここにJavaScriptで3つのボタンを自動生成します -->
+        <div id="loserButtonsContainer" style="display:flex; gap:5px; margin-top:5px;"></div>
+        <!-- 選択された放銃者の裏データ（GAS送信時に使います） -->
+        <input type="hidden" id="selectLoser" value="">
       </div>
-      <!-- ▲▲▲ ここまで追加 ▲▲▲ -->
       
       <!-- アクションエリア -->
       <div style="display:flex; justify-content:space-between; gap:10px; margin-bottom:10px;">
@@ -721,7 +715,6 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
   const buttonsArea = document.getElementById('fuButtonsArea');
   const btnAutoSubmit = document.getElementById('btnAutoSubmit');
   
-  // ▼▼▼ ここから追加（プルダウンをプレイヤー名に変更） ▼▼▼
   if (typeof currentTableData !== 'undefined' && currentTableData !== null) {
     const players = [
       { wind: "東", name: currentTableData.eastName || "東家" },
@@ -735,11 +728,14 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
     });
     
     const winSelect = document.getElementById('selectWinner');
-    const loseSelect = document.getElementById('selectLoser');
     if (winSelect) winSelect.innerHTML = optionsHtml;
-    if (loseSelect) loseSelect.innerHTML = optionsHtml;
   }
-  // ▲▲▲ ここまで追加 ▲▲▲
+
+  // ツモの場合は放銃者エリア全体を非表示にする
+  const loserArea = document.getElementById('loserArea');
+  if (loserArea) {
+    loserArea.style.display = isTsumo ? "none" : "block";
+  }
 
   buttonsArea.innerHTML = ""; 
   btnAutoSubmit.style.display = "none"; // 初期状態は非表示
@@ -867,12 +863,80 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
       }
     }
   }
-  if (typeof currentTableData !== 'undefined' && currentTableData !== null && currentTableData.mySeat) {
+if (typeof currentTableData !== 'undefined' && currentTableData !== null) {
     const winnerSelect = document.getElementById('selectWinner');
-    if (winnerSelect) {
+    
+    // 自分の座席を初期セット（環境に合わせて自動選択）
+    if (winnerSelect && currentTableData.mySeat) {
       winnerSelect.value = currentTableData.mySeat;
     }
+
+    // ▼▼▼ ここから追加：放銃者の3つ並びボタンを生成・更新する処理 ▼▼▼
+    if (!isTsumo) {
+      const loserContainer = document.getElementById('loserButtonsContainer');
+      const hiddenLoserInput = document.getElementById('selectLoser');
+      
+      const players = [
+        { wind: "東", name: currentTableData.eastName || "東家" },
+        { wind: "南", name: currentTableData.southName || "南家" },
+        { wind: "西", name: currentTableData.westName || "西家" },
+        { wind: "北", name: currentTableData.northName || "北家" }
+      ];
+
+      const renderLoserButtons = () => {
+        if (!loserContainer || !hiddenLoserInput || !winnerSelect) return;
+        loserContainer.innerHTML = "";
+        
+        // アガリ者を除外した3人を抽出
+        const currentWinner = winnerSelect.value;
+        const losers = players.filter(p => p.wind !== currentWinner);
+        
+        // 隠しフィールドの値が不正（アガリ者と同じになっている等）ならリセット
+        if (!losers.find(p => p.wind === hiddenLoserInput.value)) {
+          hiddenLoserInput.value = losers[0].wind;
+        }
+        
+        // ボタンを3つ生成
+        losers.forEach(p => {
+          let btn = document.createElement("div"); 
+          btn.textContent = p.name;
+          btn.style.flex = "1";
+          btn.style.padding = "10px 0";
+          btn.style.textAlign = "center";
+          btn.style.borderRadius = "5px";
+          btn.style.cursor = "pointer";
+          btn.style.fontWeight = "bold";
+          btn.style.fontSize = "14px";
+          
+          // 選択されている放銃者を赤色で強調
+          if (p.wind === hiddenLoserInput.value) {
+            btn.style.background = "#dc3545"; 
+            btn.style.color = "#fff";
+            btn.style.border = "2px solid #dc3545";
+          } else {
+            btn.style.background = "#f8f9fa";
+            btn.style.color = "#333";
+            btn.style.border = "1px solid #ccc";
+          }
+          
+          // ボタンを押した時の挙動
+          btn.onclick = () => {
+            hiddenLoserInput.value = p.wind;
+            renderLoserButtons(); // 再描画して色を更新
+          };
+          loserContainer.appendChild(btn);
+        });
+      };
+
+      // 初回描画
+      renderLoserButtons();
+
+      // 「アガリ者」を変更した時に、自動的に「放銃者ボタン」も再生成して除外対象を変える
+      winnerSelect.onchange = renderLoserButtons;
+    }
+    // ▲▲▲ 追加ここまで ▲▲▲
   }
+
   popup.style.display = "flex";
 }
   
