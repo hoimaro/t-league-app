@@ -164,13 +164,35 @@
   </div>
   <!-- ▲ 追加ここまで ▲ -->
 
-  <div id="confirmPopup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100; justify-content:center; align-items:center;">
+<div id="confirmPopup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100; justify-content:center; align-items:center;">
     <div style="background:#fff; padding:20px; border-radius:10px; width:90%; max-width:320px; text-align:center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
       <h3 style="margin-top:0; color:#333; font-size:18px;">認識結果の確認</h3>
       <p id="confirmPopupInfo" style="font-size:16px; color:#333; margin-bottom:15px; font-weight:bold;"></p>
       
       <!-- 符選択エリア -->
       <div id="fuButtonsArea" style="display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-bottom:15px;"></div>
+      
+      <!-- ▼▼▼ ここから追加（アガリ者・放銃者の選択） ▼▼▼ -->
+      <div style="margin-bottom:10px; text-align:left;">
+        <label style="font-size:14px; font-weight:bold;">アガリ者</label>
+        <select id="selectWinner" style="width:100%; padding:8px; margin-top:5px; border-radius:5px; border:1px solid #ccc;">
+          <option value="東">東家</option>
+          <option value="南">南家</option>
+          <option value="西">西家</option>
+          <option value="北">北家</option>
+        </select>
+      </div>
+
+      <div id="loserArea" style="margin-bottom:15px; text-align:left;">
+        <label style="font-size:14px; font-weight:bold;">放銃者（ロンの場合）</label>
+        <select id="selectLoser" style="width:100%; padding:8px; margin-top:5px; border-radius:5px; border:1px solid #ccc;">
+          <option value="東">東家</option>
+          <option value="南">南家</option>
+          <option value="西">西家</option>
+          <option value="北">北家</option>
+        </select>
+      </div>
+      <!-- ▲▲▲ ここまで追加 ▲▲▲ -->
       
       <!-- アクションエリア -->
       <div style="display:flex; justify-content:space-between; gap:10px; margin-bottom:10px;">
@@ -894,23 +916,34 @@ async function sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo) {
   
   showResultView(`送信しています...<br>${yakuArray.join(", ")}<br>${totalHan}翻 ${fu}符`, "#ffc107", "#000");
 
+// 1. 新しく追加するプルダウンから、アガリ者と放銃者の「風」を取得
+  const selectedWinnerWind = document.getElementById("selectWinner").value;
+  const selectedLoserWind = document.getElementById("selectLoser").value;
+  const agariType = isTsumo ? "ツモ" : "ロン";
+
+  // 2. GASの新しい点数計算エンジンへ送るデータ構造
   const matchRecord = {
     action: "recordMatch",
-    // 卓の最新データをまるごと添付
+    
+    // 現在の卓の状況（点数、局、本場など）をまるごと送る
     currentData: JSON.stringify(currentTableData), 
     
-    // アガリの内容（風で指定することでGAS側で確実な足し引きが可能に）
+    // アガリの内容（GAS側での点数計算用）
     agariData: JSON.stringify({
-      winner: selectedWinnerWind, // 例: "東"（自分または代理で選んだ人）
-      type: isTsumo ? "ツモ" : "ロン",
-      loser: isTsumo ? null : selectedLoserWind, // 例: "西"（ロンの場合の放銃者）
-      points: scorePoint,         // 打点（例: 8000）
-      han: totalHan,              // 翻数
-      fu: selectedFu              // 符数
+      winner: selectedWinnerWind,
+      type: agariType,
+      loser: isTsumo ? null : selectedLoserWind,
+      points: scorePoint,   // 計算済みの打点（例: 8000）
+      han: totalHan,        // 翻数
+      fu: 0                 // ※もし符の変数があれば0から書き換えてください
     }),
 
-    // スプレッドシート履歴用データ
-    yakuData: yakuArray.map(yaku => ({ matchId: currentTableData.tableId, winner: selectedWinnerWind, yaku: yaku }))
+    // 役履歴シートへの記録用
+    yakuData: yakuArray.map(yaku => ({ 
+      matchId: currentTableData.tableId, 
+      winner: selectedWinnerWind, 
+      yaku: yaku 
+    }))
   };
 
   try {
