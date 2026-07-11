@@ -692,6 +692,22 @@ function calculateScore(yakuArray, isKuiseagari, isTsumo, isOya) {
   }
 }
 
+function getCurrentDisplayWind(startWind, kyokuString) {
+  // 局数（1〜4）を抽出
+  const match = kyokuString.match(/(東|南|西|北)(\d+)局/);
+  let kyokuNum = 1;
+  if (match) {
+    kyokuNum = Number(match[2]);
+  }
+  
+  const winds = ["東", "南", "西", "北"];
+  const startIndex = winds.indexOf(startWind);
+  const shift = kyokuNum - 1; // 東2局なら1ズレる
+  
+  // ズレを計算して現在の風を返す
+  return winds[(startIndex - shift + 4) % 4];
+}
+
 // 統合された確認・アクションポップアップ
 function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, isTsumo, isOya, yakuArray, isKuiseagariApplied) {
   const popup = document.getElementById('confirmPopup');
@@ -699,6 +715,26 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
   const buttonsArea = document.getElementById('fuButtonsArea');
   const btnAutoSubmit = document.getElementById('btnAutoSubmit');
   
+  // ▼▼▼ ここから追加（プルダウンをプレイヤー名に変更） ▼▼▼
+  if (typeof currentTableData !== 'undefined' && currentTableData !== null) {
+    const players = [
+      { wind: "東", name: currentTableData.eastName || "東家" },
+      { wind: "南", name: currentTableData.southName || "南家" },
+      { wind: "西", name: currentTableData.westName || "西家" },
+      { wind: "北", name: currentTableData.northName || "北家" }
+    ];
+    let optionsHtml = "";
+    players.forEach(p => {
+      optionsHtml += `<option value="${p.wind}">${p.name}</option>`;
+    });
+    
+    const winSelect = document.getElementById('selectWinner');
+    const loseSelect = document.getElementById('selectLoser');
+    if (winSelect) winSelect.innerHTML = optionsHtml;
+    if (loseSelect) loseSelect.innerHTML = optionsHtml;
+  }
+  // ▲▲▲ ここまで追加 ▲▲▲
+
   buttonsArea.innerHTML = ""; 
   btnAutoSubmit.style.display = "none"; // 初期状態は非表示
   
