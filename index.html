@@ -24,7 +24,7 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
-  <div id="lobbyView" style="padding: 20px; text-align: center;">
+<div id="lobbyView" style="padding: 20px; text-align: center;">
     <h2>🀄 麻雀卓の管理</h2>
     <p id="lobbyStatus">状態を確認中...</p>
     
@@ -74,15 +74,16 @@
         <div class="p-name" style="font-size:13px; color:#e57373; font-weight:bold;">自分</div>
         <div class="p-score" style="font-size:15px; font-weight:bold; color:#ffeb3b;">25000</div>
       </div>
+    </div> <!-- mahjong-table-container の終わり -->
+
+    <!-- ▼ mainGameView の中にマイクとログを格納しました ▼ -->
+    <div class="controls">
+      <button id="micBtn" disabled>システムの準備中...</button>
     </div>
-  </div>
 
-  <div class="controls">
-    <button id="micBtn" disabled>システムの準備中...</button>
-  </div>
-
-  <div class="box-title">【デバッグ・認識結果ログ】</div>
-  <div id="logArea">辞書データをダウンロードしています...<br></div>
+    <div class="box-title">【デバッグ・認識結果ログ】</div>
+    <div id="logArea">辞書データをダウンロードしています...<br></div>
+  </div> <!-- ⬅️ ★ mainGameView を閉じる位置をここに移動しました ★ -->
   
   <div id="confirmPopup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100; justify-content:center; align-items:center;">
     <div style="background:#fff; padding:20px; border-radius:10px; width:90%; max-width:320px; text-align:center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
