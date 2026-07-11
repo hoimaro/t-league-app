@@ -142,20 +142,22 @@ async function initApp() {
   // 2. URLにIDがなく、LIFF IDが設定されている場合はLINEからIDを自動取得
   if (!myUserId && CONFIG_LIFF_ID) {
     try {
-      // LIFFの初期化
       await liff.init({ liffId: CONFIG_LIFF_ID });
       
-      // LINEアプリ内で開かれているかチェック
+      // ▼ 【今回修正】ログイン状態を判定する処理を追加 ▼
       if (liff.isLoggedIn()) {
+        // すでに連携済みなら、そのままIDを取得
         const profile = await liff.getProfile();
-        myUserId = profile.userId; // LINEから本物のUserIDを自動取得！
+        myUserId = profile.userId;
       } else {
-        // LINE外（普通のSafariやChrome等）で開かれた場合はログイン画面へ誘導
+        // まだ連携していない（Safariで開いたばかり）なら、LINEの認証画面を呼び出す
         liff.login();
-        return;
+        return; // 認証が終わると自動でページがリロードされるので、ここで処理を一旦止める
       }
+      
     } catch (err) {
-      console.error("LIFFの初期化またはID取得に失敗しました:", err);
+      document.getElementById("lobbyStatus").innerHTML = "⚠️ LIFFエラー発生:<br>" + err.message;
+      return;
     }
   }
 
