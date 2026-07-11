@@ -1003,6 +1003,9 @@ async function sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo) {
     if (resultData.result === "success") {
       showResultView(`【登録完了】<br>${totalHan}翻 ${fu}符<br><span style="font-size:24px;">${scoreText}</span>`, "#28a745", "#fff", 3000);
       log("スプレッドシートへの記録が完了しました。");
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } else {
       showResultView(`【登録エラー】`, "#dc3545", "#fff", 3000);
     }
