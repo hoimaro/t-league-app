@@ -1022,16 +1022,53 @@ function updateRyukyokuPreview() {
   document.getElementById("ryukyokuPreview").textContent = text;
 }
 
-// 「これで確定する」ボタンを押したときの処理
-function submitRyukyoku() {
+// 「これで確定する」ボタンを押したときの処理（GAS通信版）
+async function submitRyukyoku() {
   const tenpaiCount = Object.values(tenpaiStatus).filter(v => v).length;
   
   if (!confirm("この内容で流局処理を確定しますか？\n（親のテンパイ有無により、本場や親が自動で移行します）")) return;
   
+  // ポップアップを閉じて、送信中であることをユーザーに知らせる
   document.getElementById("ryukyokuPopup").style.display = "none";
   
-  // ★ ここでGAS（スプレッドシート）にデータを送信します ★
-  alert("【テスト】以下のデータをGASへ送信して点数を計算します。\n\n" + JSON.stringify(tenpaiStatus, null, 2));
+  // 画面上にローディング表示を出す（ボタンを一時的に無効化するなど）
+  const ryukyokuBtn = document.getElementById("btnRyukyoku");
+  const originalBtnText = ryukyokuBtn.textContent;
+  ryukyokuBtn.textContent = "⏳ GASへ送信中...";
+  ryukyokuBtn.disabled = true;
+
+  try {
+    // GASへ送るデータのパッケージを作成
+    const payload = {
+      action: "ryukyoku",
+      userId: myUserId,
+      tenpaiData: JSON.stringify(tenpaiStatus) // 例: {"東":true, "南":false...}
+    };
+
+    // GASへPOST送信
+    const res = await fetch(CONFIG_GAS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(payload)
+    });
+
+    const result = await res.json();
+
+    if (result.success) {
+      // GAS側での点数計算とスプレッドシート書き込みが成功したら、
+      // 返ってきた最新の卓データを使って、麻雀卓の表示を再描画（更新）する！
+      alert("流局処理が完了しました！");
+      setupMahjongTableUI(result.tableData, myUserId);
+    } else {
+      alert("エラーが発生しました: " + result.message);
+    }
+  } catch (error) {
+    alert("通信エラーが発生しました: " + error.message);
+  } finally {
+    // ボタンの表示を元に戻す
+    ryukyokuBtn.textContent = originalBtnText;
+    ryukyokuBtn.disabled = false;
+  }
 }
   
 window.onload = () => {
