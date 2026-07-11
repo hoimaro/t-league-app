@@ -168,7 +168,8 @@
 const CONFIG_LIFF_ID = "2010600263-fW0rPubj"; 
 
 async function initApp() {
-  let myUserId = null;
+  const urlParams = new URLSearchParams(window.location.search);
+  let myUserId = urlParams.get('id');
 
   // 1. URLパラメータ（?userId=xxx）からID取得を試みる（PCテスト用）
   const urlParams = new URLSearchParams(window.location.search);
