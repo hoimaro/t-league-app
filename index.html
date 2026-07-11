@@ -825,7 +825,12 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
       }
     }
   }
-
+  if (typeof currentTableData !== 'undefined' && currentTableData !== null && currentTableData.mySeat) {
+    const winnerSelect = document.getElementById('selectWinner');
+    if (winnerSelect) {
+      winnerSelect.value = currentTableData.mySeat;
+    }
+  }
   popup.style.display = "flex";
 }
   
