@@ -1050,7 +1050,7 @@ async function submitRyukyoku() {
     // GASへPOST送信
     const res = await fetch(CONFIG_GAS_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" }, // ⬅️ ★ここが変わりました
+      headers: { "Content-Type": "text/plain" },       // ⬅️ ★ここが変わりました
       body: JSON.stringify(payload)                    // ⬅️ ★ここが変わりました
     });
 
