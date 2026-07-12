@@ -1334,14 +1334,11 @@ document.getElementById('btnRiichi').addEventListener('click', function() {
 
   // 1. 手元のスマホ画面の点数と供託を計算
   let scoreChange = isCanceling ? 1000 : -1000;
-  let kyotakuChange = isCanceling ? -1 : 1;
 
 if (currentTableData.mySeat === "東") currentTableData.eastScore = Number(currentTableData.eastScore) + scoreChange;
   else if (currentTableData.mySeat === "南") currentTableData.southScore = Number(currentTableData.southScore) + scoreChange;
   else if (currentTableData.mySeat === "西") currentTableData.westScore = Number(currentTableData.westScore) + scoreChange;
   else if (currentTableData.mySeat === "北") currentTableData.northScore = Number(currentTableData.northScore) + scoreChange;
-
-  currentTableData.kyotaku = Math.max(0, Number(currentTableData.kyotaku || 0) + kyotakuChange);
 
   // ▼▼▼ ここから追加：画面側でもリーチ者リストを先読み更新する ▼▼▼
   let riichiSavedList = [];
