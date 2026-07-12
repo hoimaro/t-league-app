@@ -1262,17 +1262,53 @@ function log(message) {
 // ▼▼ リーチ状態を管理する変数 ▼▼
 let isCurrentlyRiichi = false;
 let riichiKyokuId = "";
+let isRiichiProcessing = false; // 🌟 追加：連打防止用のロック変数
 
-// ▼▼ ボタンを押した時の処理 ▼▼
+// ▼▼ ボタンを押した時の処理（高速レスポンス版） ▼▼
 document.getElementById('btnRiichi').addEventListener('click', function() {
-  if (!currentTableData || !currentTableData.mySeat) {
-    return;
-  }
+  if (!currentTableData || !currentTableData.mySeat) return;
+  
+  // 🌟 追加：もし通信中（ロック中）なら、ここで処理をストップして連打を弾く
+  if (isRiichiProcessing) return; 
 
   const currentKyokuId = currentTableData.kyoku + "-" + currentTableData.honba;
   const isCanceling = (isCurrentlyRiichi && riichiKyokuId === currentKyokuId);
   const targetAction = isCanceling ? "cancelRiichi" : "declareRiichi";
 
+  // 🌟 追加：処理スタートと同時にロックをかける
+  isRiichiProcessing = true; 
+  document.getElementById('btnRiichi').style.opacity = "0.6"; // 少し透明にして「処理中」を視覚的に伝える
+
+  // 1. 点数と供託の計算（宣言なら-1000、取消なら+1000）
+  let scoreChange = isCanceling ? 1000 : -1000;
+  let kyotakuChange = isCanceling ? -1 : 1;
+
+  if (currentTableData.mySeat === "東") currentTableData.eastScore = Number(currentTableData.eastScore) + scoreChange;
+  else if (currentTableData.mySeat === "南") currentTableData.southScore = Number(currentTableData.southScore) + scoreChange;
+  else if (currentTableData.mySeat === "西") currentTableData.westScore = Number(currentTableData.westScore) + scoreChange;
+  else if (currentTableData.mySeat === "北") currentTableData.northScore = Number(currentTableData.northScore) + scoreChange;
+
+  currentTableData.kyotaku = Math.max(0, Number(currentTableData.kyotaku || 0) + kyotakuChange);
+
+  // 2. 画面を即座にアップデート
+  if (typeof setupMahjongTableUI === "function") {
+    setupMahjongTableUI(currentTableData, myUserId);
+  }
+
+  // 3. ボタンの見た目も即座に切り替え
+  if (isCanceling) {
+    isCurrentlyRiichi = false;
+    riichiKyokuId = "";
+    updateRiichiButtonUI(false);
+  } else {
+    isCurrentlyRiichi = true;
+    riichiKyokuId = currentKyokuId;
+    updateRiichiButtonUI(true);
+  }
+
+  // =========================================================
+  // 裏側（GAS）への通信
+  // =========================================================
   const requestData = {
     action: targetAction,
     riichiWind: currentTableData.mySeat,
@@ -1286,30 +1322,17 @@ document.getElementById('btnRiichi').addEventListener('click', function() {
   })
   .then(response => response.json())
   .then(data => {
-    if (data.result === "success") {
-      
-      // ▼▼ ここが重要：画面と内部データを即座に強制アップデート ▼▼
-      currentTableData = data.tableData;
-      if (typeof setupMahjongTableUI === "function") {
-        setupMahjongTableUI(currentTableData, myUserId);
-      }
-      // ▲▲ 追加ここまで ▲▲
-
-      if (isCanceling) {
-        isCurrentlyRiichi = false;
-        riichiKyokuId = "";
-        updateRiichiButtonUI(false);
-      } else {
-        isCurrentlyRiichi = true;
-        riichiKyokuId = currentKyokuId;
-        updateRiichiButtonUI(true);
-      }
-    } else {
-      alert("エラー: " + data.message);
+    if (data.result !== "success") {
+      alert("裏側でのデータ保存に失敗しました: " + data.message);
     }
   })
   .catch(error => {
     console.error('通信エラー:', error);
+  })
+  .finally(() => {
+    // 🌟 追加：通信が完了した時（成功でも失敗でも）、必ずロックを解除する
+    isRiichiProcessing = false;
+    document.getElementById('btnRiichi').style.opacity = "1"; // 透明度を元に戻す
   });
 });
 
