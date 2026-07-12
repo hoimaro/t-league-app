@@ -1268,8 +1268,6 @@ document.getElementById('btnRiichi').addEventListener('click', function() {
   }
 
   const currentKyokuId = currentTableData.kyoku + "-" + currentTableData.honba;
-  
-  // 現在「リーチ中」かつ「同じ局」であれば取消処理、そうでなければリーチ宣言
   const isCanceling = (isCurrentlyRiichi && riichiKyokuId === currentKyokuId);
   const targetAction = isCanceling ? "cancelRiichi" : "declareRiichi";
 
@@ -1287,13 +1285,19 @@ document.getElementById('btnRiichi').addEventListener('click', function() {
   .then(response => response.json())
   .then(data => {
     if (data.result === "success") {
+      
+      // ▼▼ ここが重要：画面と内部データを即座に強制アップデート ▼▼
+      currentTableData = data.tableData;
+      if (typeof setupMahjongTableUI === "function") {
+        setupMahjongTableUI(currentTableData, myUserId);
+      }
+      // ▲▲ 追加ここまで ▲▲
+
       if (isCanceling) {
-        // 取り消し成功時
         isCurrentlyRiichi = false;
         riichiKyokuId = "";
         updateRiichiButtonUI(false);
       } else {
-        // リーチ成功時
         isCurrentlyRiichi = true;
         riichiKyokuId = currentKyokuId;
         updateRiichiButtonUI(true);
@@ -1313,11 +1317,11 @@ function updateRiichiButtonUI(isRiichi) {
   if (!btn) return;
   
   if (isRiichi) {
-    btn.style.backgroundColor = "#ff1744"; // リーチ中の赤色
+    btn.style.backgroundColor = "#ff1744"; 
     btn.style.border = "4px solid white";
-    btn.innerText = "取消"; // 押せば取り消せることを明示
+    btn.innerText = "取消"; 
   } else {
-    btn.style.backgroundColor = "#4caf50"; // 通常時の緑色
+    btn.style.backgroundColor = "#4caf50"; 
     btn.style.border = "2px solid white";
     btn.innerText = "リーチ";
   }
