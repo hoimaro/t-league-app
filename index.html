@@ -1247,7 +1247,43 @@ function log(message) {
     logArea.scrollTop = logArea.scrollHeight;
   }
 }
-  // ポップアップを開く関数
+
+// リーチ処理
+document.getElementById('btnRiichi').addEventListener('click', function() {
+  if (!currentTableData || !currentTableData.mySeat) {
+    alert("卓のデータが正しく取得できていません。");
+    return;
+  }
+
+  if (!confirm("リーチを宣言しますか？（1000点消費します）")) {
+    return; 
+  }
+
+  const requestData = {
+    action: "declareRiichi",
+    riichiWind: currentTableData.mySeat,
+    currentData: JSON.stringify(currentTableData)
+  };
+
+  fetch(GAS_URL, { 
+    method: 'POST',
+    body: JSON.stringify(requestData)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.result === "success") {
+      console.log("リーチ宣言完了:", data.message);
+    } else {
+      alert("エラー: " + data.message);
+    }
+  })
+  .catch(error => {
+    console.error('通信エラー:', error);
+    alert("通信エラーが発生しました。");
+  });
+});
+    
+// 流局用ポップアップ
 function openRyukyokuPopup() {
   if (!currentTableData) return;
   
