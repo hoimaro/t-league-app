@@ -364,7 +364,9 @@ function setupMahjongTableUI(tableData, myUserId) {
   // 2. 自分の席を探す
   let myIndex = players.findIndex(p => p.id === myUserId);
   if (myIndex === -1) myIndex = 0; 
-
+// ▼▼▼ 追加：自分の本来の座席（風）をアプリに記憶させる ▼▼▼
+  const baseWinds = ["東", "南", "西", "北"];
+  currentTableData.mySeat = baseWinds[myIndex];
   // 3. まろさんのHTML（boxJibun, boxShimocha...）に直接マッピングする
   const uiMap = [
     { boxId: "boxJibun",   data: players[(myIndex) % 4] },
