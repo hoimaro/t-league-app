@@ -1593,18 +1593,18 @@ async function handleReset(shouldRecord) {
       // メンバー選択画面の再ロード
       loadHostInterface();
       
-      alert("卓をリセットしました。");
     } else {
-      alert("リセットに失敗しました。");
+      // リセット失敗時もalertは表示しません
+      console.error("リセットに失敗しました");
+      btn.textContent = originalText;
+      btn.disabled = false;
     }
   } catch (error) {
-    alert("通信エラーが発生しました: " + error.message);
-  } finally {
-    // エラーが起きてもボタンは元に戻す
+    console.error("通信エラー:", error.message);
     btn.textContent = originalText;
     btn.disabled = false;
   }
-}  
+}
 window.onload = () => {
   loadDictionary();
 };
