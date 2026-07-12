@@ -425,6 +425,14 @@ function setupMahjongTableUI(tableData, myUserId) {
     document.getElementById("mainGameView").appendChild(debugIdEl);
   }
   debugIdEl.textContent = "【状態確認】現在のユーザーID: " + myUserId;
+  const currentKyokuId = data.kyoku + "-" + data.honba;
+  if (riichiKyokuId !== currentKyokuId) {
+    isCurrentlyRiichi = false;
+    updateRiichiButtonUI(false);
+  } else {
+    // 同じ局ならリーチ中の状態を維持
+    updateRiichiButtonUI(true);
+  }
 }
 
 // UIの文字を書き換える補助関数
@@ -1248,15 +1256,23 @@ function log(message) {
   }
 }
 
-// リーチ処理
+// リーチ状態を保持する変数（現在の局・本場とセットで管理）
+let isCurrentlyRiichi = false;
+let riichiKyokuId = "";
+
 document.getElementById('btnRiichi').addEventListener('click', function() {
-  if (!currentTableData || !currentTableData.mySeat) {
-    alert("卓のデータが正しく取得できていません。");
+  const btn = document.getElementById('btnRiichi');
+  const currentKyokuId = currentTableData.kyoku + "-" + currentTableData.honba;
+
+  // すでにこの局でリーチしているなら、OFFにはできないようにする（トグル制限）
+  if (isCurrentlyRiichi && riichiKyokuId === currentKyokuId) {
+    alert("リーチは取り消せません！");
     return;
   }
 
+  // 初回リーチ宣言
   if (!confirm("リーチを宣言しますか？（1000点消費します）")) {
-    return; 
+    return;
   }
 
   const requestData = {
@@ -1267,21 +1283,35 @@ document.getElementById('btnRiichi').addEventListener('click', function() {
 
   fetch(CONFIG_GAS_URL, { 
     method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify(requestData)
   })
   .then(response => response.json())
   .then(data => {
     if (data.result === "success") {
-      console.log("リーチ宣言完了:", data.message);
+      // リーチ成功：状態を更新してボタンを「リーチ中」に固定
+      isCurrentlyRiichi = true;
+      riichiKyokuId = currentKyokuId;
+      updateRiichiButtonUI(true);
     } else {
       alert("エラー: " + data.message);
     }
-  })
-  .catch(error => {
-    console.error('通信エラー:', error);
-    alert("通信エラーが発生しました。");
   });
 });
+
+// ボタンの見た目を切り替える関数（他の場所からも呼び出せるように分ける）
+function updateRiichiButtonUI(isRiichi) {
+  const btn = document.getElementById('btnRiichi');
+  if (isRiichi) {
+    btn.style.backgroundColor = "#ff1744"; // リーチ中の激しい赤
+    btn.style.border = "4px solid white";  // 枠線を太くして強調
+    btn.innerText = "リーチ中";
+  } else {
+    btn.style.backgroundColor = "#4caf50"; // リーチ前は緑
+    btn.style.border = "2px solid white";
+    btn.innerText = "リーチ";
+  }
+}
     
 // 流局用ポップアップ
 function openRyukyokuPopup() {
