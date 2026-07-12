@@ -1265,7 +1265,7 @@ document.getElementById('btnRiichi').addEventListener('click', function() {
     currentData: JSON.stringify(currentTableData)
   };
 
-  fetch(GAS_URL, { 
+  fetch(CONFIG_GAS_URL, { 
     method: 'POST',
     body: JSON.stringify(requestData)
   })
