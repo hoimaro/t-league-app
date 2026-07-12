@@ -60,7 +60,32 @@
       border-color: #007bff; /* 選択時に青く光らせる */
       box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
     }
-  </style>
+
+    .riichi-button {
+      position: absolute;    /* 卓の中で自由に配置するための魔法の言葉 */
+      bottom: 20px;          /* 下のフチから20px浮かす */
+      right: 20px;           /* 右のフチから20px浮かす */
+  
+      background-color: #ff1744; /* 目立つ赤色 */
+      color: white;          /* 文字は白 */
+      font-size: 18px;       /* 少し大きめの文字 */
+      font-weight: bold;     /* 太字 */
+      padding: 12px 24px;    /* ボタンの余白（縦 横） */
+  
+      border: 2px solid white; /* 白い枠線 */
+      border-radius: 8px;    /* 角を少し丸くする */
+      box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.5); /* 立体的な影 */
+      cursor: pointer;       /* 押せる雰囲気のマウスカーソル */
+      z-index: 10;           /* 他の文字より手前に表示する */
+    }
+
+    /* 押した時に少し沈むアクション */
+    .riichi-button:active {
+      transform: translateY(2px);
+      box-shadow: 0px 0px 2px rgba(0, 0, 0, 0.5);
+    }
+
+</style>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
@@ -127,6 +152,7 @@
         <div class="p-name" style="font-size:13px; color:#e57373; font-weight:bold;">自分</div>
         <div class="p-score" style="font-size:15px; font-weight:bold; color:#ffeb3b;">25000</div>
       </div>
+      <button id="btnRiichi" class="riichi-button">リーチ</button>
     </div> <!-- mahjong-table-container の終わり -->
 
     <div class="controls" style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
