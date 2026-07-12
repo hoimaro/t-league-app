@@ -1257,26 +1257,24 @@ function log(message) {
 }
 
 // リーチ状態を保持する変数（現在の局・本場とセットで管理）
+// ▼▼ リーチ状態を管理する変数 ▼▼
 let isCurrentlyRiichi = false;
 let riichiKyokuId = "";
 
+// ▼▼ ボタンを押した時の処理 ▼▼
 document.getElementById('btnRiichi').addEventListener('click', function() {
-  const btn = document.getElementById('btnRiichi');
+  if (!currentTableData || !currentTableData.mySeat) {
+    return;
+  }
+
   const currentKyokuId = currentTableData.kyoku + "-" + currentTableData.honba;
-
-  // すでにこの局でリーチしているなら、OFFにはできないようにする（トグル制限）
-  if (isCurrentlyRiichi && riichiKyokuId === currentKyokuId) {
-    alert("リーチは取り消せません！");
-    return;
-  }
-
-  // 初回リーチ宣言
-  if (!confirm("リーチを宣言しますか？（1000点消費します）")) {
-    return;
-  }
+  
+  // 現在「リーチ中」かつ「同じ局」であれば取消処理、そうでなければリーチ宣言
+  const isCanceling = (isCurrentlyRiichi && riichiKyokuId === currentKyokuId);
+  const targetAction = isCanceling ? "cancelRiichi" : "declareRiichi";
 
   const requestData = {
-    action: "declareRiichi",
+    action: targetAction,
     riichiWind: currentTableData.mySeat,
     currentData: JSON.stringify(currentTableData)
   };
@@ -1289,25 +1287,37 @@ document.getElementById('btnRiichi').addEventListener('click', function() {
   .then(response => response.json())
   .then(data => {
     if (data.result === "success") {
-      // リーチ成功：状態を更新してボタンを「リーチ中」に固定
-      isCurrentlyRiichi = true;
-      riichiKyokuId = currentKyokuId;
-      updateRiichiButtonUI(true);
+      if (isCanceling) {
+        // 取り消し成功時
+        isCurrentlyRiichi = false;
+        riichiKyokuId = "";
+        updateRiichiButtonUI(false);
+      } else {
+        // リーチ成功時
+        isCurrentlyRiichi = true;
+        riichiKyokuId = currentKyokuId;
+        updateRiichiButtonUI(true);
+      }
     } else {
       alert("エラー: " + data.message);
     }
+  })
+  .catch(error => {
+    console.error('通信エラー:', error);
   });
 });
 
-// ボタンの見た目を切り替える関数（他の場所からも呼び出せるように分ける）
+// ▼▼ ボタンの見た目を切り替える関数 ▼▼
 function updateRiichiButtonUI(isRiichi) {
   const btn = document.getElementById('btnRiichi');
+  if (!btn) return;
+  
   if (isRiichi) {
-    btn.style.backgroundColor = "#ff1744"; // リーチ中の激しい赤
-    btn.style.border = "4px solid white";  // 枠線を太くして強調
-    btn.innerText = "リーチ中";
+    btn.style.backgroundColor = "#ff1744"; // リーチ中の赤色
+    btn.style.border = "4px solid white";
+    btn.innerText = "取消"; // 押せば取り消せることを明示
   } else {
-    btn.style.backgroundColor = "#4caf50"; // リーチ前は緑
+    btn.style.backgroundColor = "#4caf50"; // 通常時の緑色
     btn.style.border = "2px solid white";
     btn.innerText = "リーチ";
   }
