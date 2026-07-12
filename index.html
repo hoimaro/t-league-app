@@ -1262,24 +1262,31 @@ function log(message) {
 // ▼▼ リーチ状態を管理する変数 ▼▼
 let isCurrentlyRiichi = false;
 let riichiKyokuId = "";
-let isRiichiProcessing = false; // 🌟 追加：連打防止用のロック変数
+let isRiichiProcessing = false;
 
 // ▼▼ ボタンを押した時の処理（高速レスポンス版） ▼▼
 document.getElementById('btnRiichi').addEventListener('click', function() {
   if (!currentTableData || !currentTableData.mySeat) return;
   
-  // 🌟 追加：もし通信中（ロック中）なら、ここで処理をストップして連打を弾く
   if (isRiichiProcessing) return; 
 
   const currentKyokuId = currentTableData.kyoku + "-" + currentTableData.honba;
   const isCanceling = (isCurrentlyRiichi && riichiKyokuId === currentKyokuId);
   const targetAction = isCanceling ? "cancelRiichi" : "declareRiichi";
 
-  // 🌟 追加：処理スタートと同時にロックをかける
   isRiichiProcessing = true; 
-  document.getElementById('btnRiichi').style.opacity = "0.6"; // 少し透明にして「処理中」を視覚的に伝える
+  document.getElementById('btnRiichi').style.opacity = "0.6";
 
-  // 1. 点数と供託の計算（宣言なら-1000、取消なら+1000）
+  // =========================================================
+  // 🌟【修正箇所】裏側（GAS）へ送るデータは、画面の点数をいじる「前」に作って退避させておく
+  // =========================================================
+  const requestData = {
+    action: targetAction,
+    riichiWind: currentTableData.mySeat,
+    currentData: JSON.stringify(currentTableData)
+  };
+
+  // 1. 手元のスマホ画面の点数と供託を計算
   let scoreChange = isCanceling ? 1000 : -1000;
   let kyotakuChange = isCanceling ? -1 : 1;
 
@@ -1290,7 +1297,7 @@ document.getElementById('btnRiichi').addEventListener('click', function() {
 
   currentTableData.kyotaku = Math.max(0, Number(currentTableData.kyotaku || 0) + kyotakuChange);
 
-  // 2. 画面を即座にアップデート
+  // 2. 画面を即座にアップデート（先読み）
   if (typeof setupMahjongTableUI === "function") {
     setupMahjongTableUI(currentTableData, myUserId);
   }
@@ -1307,14 +1314,8 @@ document.getElementById('btnRiichi').addEventListener('click', function() {
   }
 
   // =========================================================
-  // 裏側（GAS）への通信
+  // 退避させておいた正しいデータを使って、裏側へ通信する
   // =========================================================
-  const requestData = {
-    action: targetAction,
-    riichiWind: currentTableData.mySeat,
-    currentData: JSON.stringify(currentTableData)
-  };
-
   fetch(CONFIG_GAS_URL, { 
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
@@ -1330,9 +1331,8 @@ document.getElementById('btnRiichi').addEventListener('click', function() {
     console.error('通信エラー:', error);
   })
   .finally(() => {
-    // 🌟 追加：通信が完了した時（成功でも失敗でも）、必ずロックを解除する
     isRiichiProcessing = false;
-    document.getElementById('btnRiichi').style.opacity = "1"; // 透明度を元に戻す
+    document.getElementById('btnRiichi').style.opacity = "1";
   });
 });
 
