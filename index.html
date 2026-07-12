@@ -204,7 +204,45 @@
   <div id="resultView" style="display:none; position:fixed; top:20px; left:50%; transform:translateX(-50%); color:#fff; padding:15px 20px; border-radius:8px; z-index:200; width:80%; max-width:300px; text-align:center; box-shadow:0 4px 6px rgba(0,0,0,0.3); font-weight:bold;">
     <div id="resultText"></div>
   </div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
 <script>
+// Firebaseの初期設定と受信設定
+const firebaseConfig = {
+  apiKey: "AIzaSyCMV8Q4byjVGLnusCcJ_uBV3GoFV317ylE",
+  authDomain: "t-league-app-7bd80.firebaseapp.com",
+  databaseURL: "https://t-league-app-7bd80-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "t-league-app-7bd80",
+  storageBucket: "t-league-app-7bd80.firebasestorage.app",
+  messagingSenderId: "224775754642",
+  appId: "1:224775754642:web:7009404537845708f4e74b"
+};
+// Firebaseを起動
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let currentTableRef = null;
+
+// Firebaseからのプッシュ通知を待ち受ける関数
+function startRealtimeSync(tableId) {
+  if (currentTableRef) {
+    currentTableRef.off();
+  }
+  // 「tables/卓ID」という専用チャンネルに繋ぐ
+  currentTableRef = db.ref("tables/" + tableId);
+
+  // データが更新された瞬間、自動で画面を書き換える
+  currentTableRef.on("value", (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      console.log("🔥Firebase受信:", data);
+      setupMahjongTableUI(data, myUserId);
+    }
+  });
+}
+
 // アプリ起動時に最初に呼び出す関数（LIFF連動版）
 const CONFIG_LIFF_ID = "2010600263-fW0rPubj"; 
 let myUserId = new URLSearchParams(window.location.search).get('id') || new URLSearchParams(window.location.search).get('userId');
