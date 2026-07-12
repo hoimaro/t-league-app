@@ -402,6 +402,37 @@ function setupMahjongTableUI(tableData, myUserId) {
       badge.style.zIndex = "10";
       
       boxEl.appendChild(badge);
+
+      // ▼▼▼ 追加：相手の画面にも見える「リーチバッジ」の表示 ▼▼▼
+      let oldRiichiBadge = boxEl.querySelector(".riichi-user-badge");
+      if (oldRiichiBadge) oldRiichiBadge.remove();
+
+      let activeRiichiList = [];
+      if (currentTableData.riichiStatus) {
+        activeRiichiList = currentTableData.riichiStatus.split(",").filter(w => w !== "");
+      }
+
+      // このプレイヤーの風がリストに入っていれば、バッジを生成
+      if (activeRiichiList.includes(p.data.wind)) {
+        let rBadge = document.createElement("div");
+        rBadge.className = "riichi-user-badge";
+        rBadge.textContent = "リーチ";
+        rBadge.style.position = "absolute";
+        rBadge.style.top = "-8px";
+        rBadge.style.right = "-8px";
+        rBadge.style.backgroundColor = "#ff1744";
+        rBadge.style.color = "white";
+        rBadge.style.fontSize = "11px";
+        rBadge.style.fontWeight = "bold";
+        rBadge.style.padding = "4px 6px";
+        rBadge.style.borderRadius = "8px";
+        rBadge.style.boxShadow = "0 2px 4px rgba(0,0,0,0.4)";
+        rBadge.style.zIndex = "11";
+        rBadge.style.transform = "rotate(10deg)";
+        
+        boxEl.appendChild(rBadge);
+      }
+      // ▲▲▲ 追加ここまで ▲▲▲
     }
   });
 
@@ -1292,12 +1323,25 @@ document.getElementById('btnRiichi').addEventListener('click', function() {
   let scoreChange = isCanceling ? 1000 : -1000;
   let kyotakuChange = isCanceling ? -1 : 1;
 
-  if (currentTableData.mySeat === "東") currentTableData.eastScore = Number(currentTableData.eastScore) + scoreChange;
+if (currentTableData.mySeat === "東") currentTableData.eastScore = Number(currentTableData.eastScore) + scoreChange;
   else if (currentTableData.mySeat === "南") currentTableData.southScore = Number(currentTableData.southScore) + scoreChange;
   else if (currentTableData.mySeat === "西") currentTableData.westScore = Number(currentTableData.westScore) + scoreChange;
   else if (currentTableData.mySeat === "北") currentTableData.northScore = Number(currentTableData.northScore) + scoreChange;
 
   currentTableData.kyotaku = Math.max(0, Number(currentTableData.kyotaku || 0) + kyotakuChange);
+
+  // ▼▼▼ ここから追加：画面側でもリーチ者リストを先読み更新する ▼▼▼
+  let riichiSavedList = [];
+  if (currentTableData.riichiStatus) {
+    riichiSavedList = currentTableData.riichiStatus.split(",").filter(w => w !== "");
+  }
+  if (isCanceling) {
+    riichiSavedList = riichiSavedList.filter(w => w !== currentTableData.mySeat);
+  } else {
+    if (!riichiSavedList.includes(currentTableData.mySeat)) riichiSavedList.push(currentTableData.mySeat);
+  }
+  currentTableData.riichiStatus = riichiSavedList.join(",");
+  // ▲▲▲ 追加ここまで ▲▲▲
 
   // 2. 画面を即座にアップデート（先読み）
   if (typeof setupMahjongTableUI === "function") {
