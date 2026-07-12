@@ -347,19 +347,16 @@ function setupMahjongTableUI(tableData, myUserId) {
   document.getElementById("lobbyView").style.display = "none";
   document.getElementById("mainGameView").style.display = "block";
 
-  // ▼▼▼ 追加：現在の局数を取得（例: "東2局"） ▼▼▼
   const currentKyoku = tableData.kyoku || tableData.round || "東1局";
-  // ▲▲▲ 追加ここまで ▲▲▲
 
   // 1. 各プレイヤー情報と風のデータをセット
   // ▼▼▼ 修正：getCurrentDisplayWindを使って、現在の局に合わせた「実際の風」をセットする ▼▼▼
-  const players = [
-    { id: tableData.eastId, name: tableData.eastName, score: tableData.eastScore, wind: getCurrentDisplayWind("東", currentKyoku) },
-    { id: tableData.southId, name: tableData.southName, score: tableData.southScore, wind: getCurrentDisplayWind("南", currentKyoku) },
-    { id: tableData.westId, name: tableData.westName, score: tableData.westScore, wind: getCurrentDisplayWind("西", currentKyoku) },
-    { id: tableData.northId, name: tableData.northName, score: tableData.northScore, wind: getCurrentDisplayWind("北", currentKyoku) }
-  ];
-  // ▲▲▲ 修正ここまで ▲▲▲
+const players = [
+  { id: tableData.eastId, name: tableData.eastName, score: tableData.eastScore, wind: getCurrentDisplayWind("東", currentKyoku), baseWind: "東" },
+  { id: tableData.southId, name: tableData.southName, score: tableData.southScore, wind: getCurrentDisplayWind("南", currentKyoku), baseWind: "南" },
+  { id: tableData.westId, name: tableData.westName, score: tableData.westScore, wind: getCurrentDisplayWind("西", currentKyoku), baseWind: "西" },
+  { id: tableData.northId, name: tableData.northName, score: tableData.northScore, wind: getCurrentDisplayWind("北", currentKyoku), baseWind: "北" }
+];
 
   // 2. 自分の席を探す
   let myIndex = players.findIndex(p => p.id === myUserId);
@@ -413,7 +410,7 @@ function setupMahjongTableUI(tableData, myUserId) {
       }
 
       // このプレイヤーの風がリストに入っていれば、バッジを生成
-      if (activeRiichiList.includes(p.data.wind)) {
+      if (activeRiichiList.includes(p.data.baseWind)) {
         let rBadge = document.createElement("div");
         rBadge.className = "riichi-user-badge";
         rBadge.textContent = "リーチ";
