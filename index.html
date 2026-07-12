@@ -300,13 +300,15 @@ async function initApp() {
     if (resData.result === "success") {
       // ➡️ 卓が見つかった！自動着席してメイン画面を表示
       setupMahjongTableUI(resData.tableData, myUserId);
+      let currentTableId = resData.tableData.tableId || "T_LEAGUE_TABLE_1"; 
+      startRealtimeSync(currentTableId);
     } else {
       // ➡️ 卓がなかった！ホスト用の卓作成画面をロード
       document.getElementById("lobbyStatus").textContent = "現在、進行中の卓はありません。";
       loadHostInterface();
     }
   } catch (e) {
-    document.getElementById("lobbyStatus").innerHTML = "⚠️ 通信エラー発生:<br>" + e.message;
+    document.getElementById("lobbyStatus").innerHTML = "⚠️ 通信エラー発生:<br>";
   }
 }
 
