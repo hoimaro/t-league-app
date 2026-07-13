@@ -1333,6 +1333,7 @@ let riichiKyokuId = "";
 let isRiichiProcessing = false;
 
 // ▼▼ ボタンを押した時の処理（高速レスポンス版） ▼▼
+// ▼▼ 修正：リーチボタン押下処理（即時レスポンス版） ▼▼
 document.getElementById('btnRiichi').addEventListener('click', function() {
   if (!currentTableData || !currentTableData.mySeat) return;
   
@@ -1345,25 +1346,27 @@ document.getElementById('btnRiichi').addEventListener('click', function() {
   isRiichiProcessing = true; 
   document.getElementById('btnRiichi').style.opacity = "0.6";
 
+  // ① 送信用データを作成（※計算前の状態を退避）
   const requestData = {
     action: targetAction,
     riichiWind: currentTableData.mySeat,
     currentData: JSON.stringify(currentTableData)
   };
 
-  // 1. 手元のスマホ画面の「点数」と「供託」を即座に計算（先読み）
+  // ② 手元画面の「点数」と「供託」を即座に計算（先読み）
   let scoreChange = isCanceling ? 1000 : -1000;
   let kyotakuChange = isCanceling ? -1 : 1;
 
+  // 点数を更新
   if (currentTableData.mySeat === "東") currentTableData.eastScore = Number(currentTableData.eastScore) + scoreChange;
   else if (currentTableData.mySeat === "南") currentTableData.southScore = Number(currentTableData.southScore) + scoreChange;
   else if (currentTableData.mySeat === "西") currentTableData.westScore = Number(currentTableData.westScore) + scoreChange;
   else if (currentTableData.mySeat === "北") currentTableData.northScore = Number(currentTableData.northScore) + scoreChange;
 
-  // ★ 卓中央の供託本数を増減（0未満にはならないように制御）
+  // ★ 供託の即時更新（ここが抜けていたためタイムラグが発生していました）
   currentTableData.kyotaku = Math.max(0, Number(currentTableData.kyotaku || 0) + kyotakuChange);
 
-  // リーチ者リストの先読み更新
+  // リーチ者リストの即時更新
   let riichiSavedList = [];
   if (currentTableData.riichiStatus) {
     riichiSavedList = currentTableData.riichiStatus.split(",").filter(w => w !== "");
@@ -1375,12 +1378,12 @@ document.getElementById('btnRiichi').addEventListener('click', function() {
   }
   currentTableData.riichiStatus = riichiSavedList.join(",");
 
-  // 2. 画面UIを即座にアップデート
+  // ③ 画面UIを即座に再描画（0秒で点数と供託数字が反映されます）
   if (typeof setupMahjongTableUI === "function") {
     setupMahjongTableUI(currentTableData, myUserId);
   }
 
-  // 3. ボタンの表示切替
+  // ④ ボタンの見た目を切り替え
   if (isCanceling) {
     isCurrentlyRiichi = false;
     riichiKyokuId = "";
@@ -1391,7 +1394,7 @@ document.getElementById('btnRiichi').addEventListener('click', function() {
     updateRiichiButtonUI(true);
   }
 
-  // 4. 裏側（GAS）へ通信
+  // ⑤ 裏側（GAS）へ非同期送信
   fetch(CONFIG_GAS_URL, { 
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
