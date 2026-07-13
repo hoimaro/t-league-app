@@ -243,9 +243,12 @@
   </div>
 </div>
 
-  <div id="resultView" style="display:none; position:fixed; top:20px; left:50%; transform:translateX(-50%); color:#fff; padding:15px 20px; border-radius:8px; z-index:200; width:80%; max-width:300px; text-align:center; box-shadow:0 4px 6px rgba(0,0,0,0.3); font-weight:bold;">
+<!-- ▼ 修正：モーダル表示用の暗転背景付きダイアログ ▼ -->
+<div id="resultView" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:500; justify-content:center; align-items:center;">
+  <div style="background:#fff; color:#333; padding:25px 20px; border-radius:12px; width:85%; max-width:320px; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,0.3);">
     <div id="resultText"></div>
   </div>
+</div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -1230,37 +1233,31 @@ async function sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo) {
     globalAddedYaku = "";
   }
 
-  const scoreResult = calculateScorePoints(totalHan, fu, isOya, isTsumo);
-  const scorePoint = scoreResult.total; 
-  const scoreText = scoreResult.text;   
-  
-// 1. 新しく追加するプルダウンから、アガリ者と放銃者の「風」を取得
+  // 1. 打点・本場・供託のフォーマット文字列を取得
+  const scoreData = formatScorePatternB(totalHan, fu, isOya, isTsumo);
+
+  // 2. 通信前に即座にダイアログを表示（背景暗転）
+  showResultModal(scoreData.html);
+
   const selectedWinnerWind = document.getElementById("selectWinner").value;
   const selectedLoserWind = document.getElementById("selectLoser").value;
   const agariType = isTsumo ? "ツモ" : "ロン";
 
-  // 2. GASの新しい点数計算エンジンへ送るデータ構造
   const matchRecord = {
     action: "recordMatch",
-    
-    // 現在の卓の状況（点数、局、本場など）をまるごと送る
-    currentData: JSON.stringify(currentTableData), 
-    
-    // アガリの内容（GAS側での点数計算用）
+    currentData: JSON.stringify(currentTableData),
     agariData: JSON.stringify({
       winner: selectedWinnerWind,
       type: agariType,
       loser: isTsumo ? null : selectedLoserWind,
-      points: scorePoint,   // 計算済みの打点（例: 8000）
-      han: totalHan,        // 翻数
-      fu: 0                 // ※もし符の変数があれば0から書き換えてください
+      points: scoreData.rawBaseScore,
+      han: totalHan,
+      fu: fu
     }),
-
-    // 役履歴シートへの記録用
-    yakuData: yakuArray.map(yaku => ({ 
-      matchId: currentTableData.tableId, 
-      winner: selectedWinnerWind, 
-      yaku: yaku 
+    yakuData: yakuArray.map(yaku => ({
+      matchId: currentTableData.tableId,
+      winner: selectedWinnerWind,
+      yaku: yaku
     }))
   };
 
@@ -1272,16 +1269,24 @@ async function sendMatchDataToGAS(yakuArray, totalHan, fu, isOya, isTsumo) {
     const resultData = await response.json();
 
     if (resultData.result === "success") {
-      showResultView(`【登録完了】<br>${totalHan}翻 ${fu}符<br><span style="font-size:24px;">${scoreText}</span>`, "#28a745", "#fff", 3000);
-      log("スプレッドシートへの記録が完了しました。");
+      // 3. GASの更新完了後、「登録完了」に文字を変更
+      updateResultModalContent(`<div style="font-size:24px; font-weight:bold; color:#28a745; padding:15px 0;">登録完了</div>`);
+      
+      // 4. ブラウザ全体をリロードせず、GASから返ってきた最新卓データで画面UIを直接上書き更新
+      setupMahjongTableUI(resultData.tableData, myUserId);
+
+      // 5. 1.2秒後にダイアログを閉じて暗転を解除（元の画面に戻る）
       setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+        hideResultModal();
+      }, 1200);
+
     } else {
-      showResultView(`【登録エラー】`, "#dc3545", "#fff", 3000);
+      updateResultModalContent(`<div style="font-size:18px; font-weight:bold; color:#dc3545; padding:10px 0;">登録エラーが発生しました</div>`);
+      setTimeout(() => { hideResultModal(); }, 2000);
     }
   } catch (error) {
-    showResultView(`【通信エラー】`, "#dc3545", "#fff", 3000);
+    updateResultModalContent(`<div style="font-size:18px; font-weight:bold; color:#dc3545; padding:10px 0;">通信エラーが発生しました</div>`);
+    setTimeout(() => { hideResultModal(); }, 2000);
   }
 }
 
@@ -1424,7 +1429,77 @@ function updateRiichiButtonUI(isRiichi) {
     btn.innerText = "リーチ";
   }
 }
+
+// パターンB用の打点表示HTML生成関数
+function formatScorePatternB(han, fu, isOya, isTsumo) {
+  let basePoint = 0;
+  if (han >= 13) basePoint = 8000; 
+  else if (han >= 11) basePoint = 6000; 
+  else if (han >= 8) basePoint = 4000; 
+  else if (han >= 6) basePoint = 3000; 
+  else if (han >= 5 || (han === 4 && fu >= 30) || (han === 3 && fu >= 60)) basePoint = 2000; 
+  else {
+    basePoint = fu * Math.pow(2, han + 2);
+    if (basePoint > 2000) basePoint = 2000; 
+  }
+
+  const honba = Number((currentTableData && currentTableData.honba) || 0);
+  let scoreText = "";
+
+  if (isTsumo) {
+    const honbaBonus = honba * 100;
+    const honbaStr = honba > 0 ? `(+${honbaBonus})` : "";
     
+    if (isOya) {
+      let koPay = Math.ceil((basePoint * 2) / 100) * 100;
+      scoreText = `${koPay.toLocaleString()}${honbaStr}オール`;
+    } else {
+      let koPay = Math.ceil((basePoint * 1) / 100) * 100;
+      let oyaPay = Math.ceil((basePoint * 2) / 100) * 100;
+      scoreText = `${koPay.toLocaleString()}${honbaStr} / ${oyaPay.toLocaleString()}${honbaStr}`;
+    }
+  } else {
+    const honbaBonus = honba * 300;
+    const honbaStr = honba > 0 ? `(+${honbaBonus})` : "";
+    let totalBase = isOya ? Math.ceil((basePoint * 6) / 100) * 100 : Math.ceil((basePoint * 4) / 100) * 100;
+    scoreText = `${totalBase.toLocaleString()}${honbaStr}`;
+  }
+
+  // 供託・リーチ棒の集計
+  let riichiCount = 0;
+  if (currentTableData && currentTableData.riichiStatus) {
+    riichiCount = currentTableData.riichiStatus.split(",").filter(w => w !== "").length;
+  }
+  const totalKyotaku = (Number((currentTableData && currentTableData.kyotaku) || 0) + riichiCount) * 1000;
+  
+  let html = `<div style="font-size:20px; font-weight:bold; margin-bottom:12px; color:#333;">${han}翻${fu}符</div>`;
+  html += `<div style="font-size:22px; font-weight:bold; color:#d32f2f; margin-bottom:8px;">${scoreText}</div>`;
+  
+  // 供託がある場合のみ行を追加
+  if (totalKyotaku > 0) {
+    html += `<div style="font-size:16px; font-weight:bold; color:#1976d2; margin-top:8px;">供託 : +${totalKyotaku.toLocaleString()}</div>`;
+  }
+
+  return { html: html, rawBaseScore: calculateScorePoints(han, fu, isOya, isTsumo).total };
+}
+
+function showResultModal(htmlContent) {
+  const view = document.getElementById('resultView');
+  const textDiv = document.getElementById('resultText');
+  textDiv.innerHTML = htmlContent;
+  view.style.display = "flex";
+}
+
+function updateResultModalContent(htmlContent) {
+  const textDiv = document.getElementById('resultText');
+  if (textDiv) textDiv.innerHTML = htmlContent;
+}
+
+function hideResultModal() {
+  const view = document.getElementById('resultView');
+  if (view) view.style.display = "none";
+}
+  
 // 流局用ポップアップ
 function openRyukyokuPopup() {
   if (!currentTableData) return;
