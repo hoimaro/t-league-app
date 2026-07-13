@@ -207,42 +207,44 @@
     </div>
   </div>
 
+<!-- 認識結果の確認ポップアップ -->
 <div id="confirmPopup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100; justify-content:center; align-items:center;">
-  <div style="background:#fff; padding:20px; border-radius:10px; width:90%; max-width:320px; text-align:center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+  <div style="background:#fff; padding:20px; border-radius:10px; width:90%; max-width:340px; text-align:center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
     <h3 style="margin-top:0; color:#333; font-size:18px;">認識結果の確認</h3>
-    <!-- ① 確定役 -->
-    <p id="confirmPopupInfo" style="font-size:16px; color:#333; margin-bottom:15px; font-weight:bold;"></p>
     
-    <!-- ② 翻数と役の追加ボタンを統合 -->
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px; padding:10px; background:#f8f9fa; border-radius:5px;">
+    <!-- ① 上がり役バッジ一覧（「確定役：」削除、フォントUP、タップで削除） -->
+    <div id="confirmPopupInfo" style="margin-bottom:12px;"></div>
+    
+    <!-- ② 翻数と役の追加ボタン -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; padding:10px; background:#f8f9fa; border-radius:6px;">
       <span id="hanDisplay" style="font-weight:bold; font-size:22px; color:#e91e63;"></span>
-      <button onclick="startAddVoice()" style="background:#499da9; color:#fff; padding:10px 15px; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">🎤 役の追加</button>
+      <button onclick="startAddVoice()" style="background:#499da9; color:#fff; padding:8px 12px; border:none; border-radius:5px; cursor:pointer; font-weight:bold; font-size:14px;">🎤 役の追加</button>
     </div>
 
-    <!-- ③ 放銃者エリア -->
-    <div id="loserArea" style="margin-bottom:15px; text-align:left;">
-      <label style="font-size:14px; font-weight:bold;">放銃者</label>
-      <div id="loserButtonsContainer" style="display:flex; gap:5px; margin-top:5px;"></div>
+    <!-- ③ 放銃者エリア（未選択警告表示付き） -->
+    <div id="loserArea" style="margin-bottom:12px; text-align:left;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <label style="font-size:14px; font-weight:bold;">放銃者</label>
+        <span id="loserNotice" style="font-size:12px; color:#dc3545; font-weight:bold; display:none;">⚠️ 放銃者を選択してください</span>
+      </div>
+      <div id="loserButtonsContainer" style="display:flex; gap:6px; margin-top:5px;"></div>
       <input type="hidden" id="selectLoser" value="">
     </div>
 
-    <!-- ④ 符の決定と符ボタン -->
+    <!-- ④ 符の決定エリア（4列配置） -->
     <div id="fuLabel" style="margin-bottom:5px; text-align:left; font-size:14px; font-weight:bold;">符の決定</div>
-    <div id="fuButtonsArea" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:15px;"></div>
+    <div id="fuButtonsArea" style="margin-bottom:15px;"></div>
 
     <!-- アガリ者選択 -->
     <div id="winnerArea" style="margin-bottom:15px; text-align:left;">
       <label style="font-size:14px; font-weight:bold;">アガリ者</label>
-      <select id="selectWinner" style="width:100%; padding:8px; margin-top:5px; border-radius:5px; border:1px solid #ccc;"></select>
+      <select id="selectWinner" style="width:100%; padding:8px; margin-top:5px; border-radius:5px; border:1px solid #ccc; font-size:15px;"></select>
     </div>
 
-    <!-- 自動記録ボタン（※表示される場合のみ） -->
-    <button id="btnAutoSubmit" style="display:none; width:100%; background:#28a745; color:#fff; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; margin-bottom:10px;">このまま記録</button>
-
-    <!-- ④下部ボタン（やり直し、キャンセル） -->
-    <div style="display:flex; gap:10px;">
-      <button onclick="startRetryVoice()" style="flex:1; background:#ffc107; color:#333; padding:12px; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">やり直し</button>
-      <button onclick="document.getElementById('confirmPopup').style.display='none'" style="flex:1; background:#6c757d; color:#fff; padding:12px; border:none; border-radius:5px; cursor:pointer;">キャンセル</button>
+    <!-- ⑤ 下部ボタンエリア（やり直し削除、左：キャンセル、右：確定） -->
+    <div style="display:flex; gap:10px; margin-top:15px;">
+      <button onclick="document.getElementById('confirmPopup').style.display='none'" style="flex:1; background:#6c757d; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:15px; cursor:pointer;">キャンセル</button>
+      <button id="btnSubmitMatch" onclick="submitConfirmedMatch()" style="flex:1; background:#28a745; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; font-size:15px; cursor:pointer;">確定</button>
     </div>
   </div>
 </div>
@@ -871,13 +873,45 @@ function getCurrentDisplayWind(startWind, kyokuString) {
   return winds[(startIndex - shift + 4) % 4];
 }
 
+
 // 統合された確認・アクションポップアップ
+// 選択中の状態を保持するグローバル変数
+let currentSelectedFu = 30;
+let currentSelectedLoser = "";
+let currentConfirmParams = {};
+
+// 役を削除する関数（タップ時に実行）
+function removeYaku(index) {
+  if (globalYakuArray.length <= 1) {
+    alert("役は最低1つ必要です。");
+    return;
+  }
+  // 指定された役をリストから削除
+  globalYakuArray.splice(index, 1);
+  
+  // 再計算してダイアログを再描画
+  let isTsumo = globalYakuArray.includes("ツモ") || globalYakuArray.includes("嶺上開花") || 
+                globalYakuArray.includes("海底撈月") || globalYakuArray.includes("天和") || globalYakuArray.includes("地和");
+  calculateScore(globalYakuArray, globalIsKuiseagari, isTsumo, false);
+}
+
+// 認識結果の確認ポップアップ表示関数
 function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, isTsumo, isOya, yakuArray, isKuiseagariApplied) {
   const popup = document.getElementById('confirmPopup');
   const infoText = document.getElementById('confirmPopupInfo');
   const buttonsArea = document.getElementById('fuButtonsArea');
-  const btnAutoSubmit = document.getElementById('btnAutoSubmit');
+  const loserArea = document.getElementById('loserArea');
   
+  // パラメータを保存
+  currentConfirmParams = { totalHan, isOya, isTsumo, yakuArray };
+  
+  // 初期値のリセット
+  currentSelectedLoser = ""; // ロン時は最初は未選択状態
+  currentSelectedFu = 30;
+  if (hasChiitoitsu) currentSelectedFu = 25;
+  if (hasPinfu && isTsumo) currentSelectedFu = 20;
+
+  // アガリ者プルダウンの初期化
   if (typeof currentTableData !== 'undefined' && currentTableData !== null) {
     const players = [
       { wind: "東", name: currentTableData.eastName || "東家" },
@@ -889,212 +923,240 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
     players.forEach(p => {
       optionsHtml += `<option value="${p.wind}">${p.name}</option>`;
     });
-    
     const winSelect = document.getElementById('selectWinner');
-    if (winSelect) winSelect.innerHTML = optionsHtml;
+    if (winSelect) {
+      winSelect.innerHTML = optionsHtml;
+      if (currentTableData.mySeat) winSelect.value = currentTableData.mySeat;
+    }
   }
 
-  // ツモの場合は放銃者エリア全体を非表示にする
-  const loserArea = document.getElementById('loserArea');
+  // --- ① 上がり役の表示（「確定役：」削除、フォント1サイズUP、×印タップで削除） ---
+  let yakuBadges = yakuArray.map((yaku, idx) => {
+    let han = YAKU_HAN[yaku] || 1;
+    let bg = "#e3f2fd", border = "#90caf9", color = "#1565c0";
+
+    if (han === 13) {
+      bg = "linear-gradient(135deg, #FFD700, #FF8C00)"; border = "transparent"; color = "#fff";
+    } else if (han >= 5) {
+      bg = "#fce4ec"; border = "#f48fb1"; color = "#c2185b";
+    } else if (han >= 3) {
+      bg = "#fff3e0"; border = "#ffcc80"; color = "#e65100";
+    } else if (han === 2) {
+      bg = "#e8f5e9"; border = "#a5d6a7"; color = "#2e7d32";
+    }
+    if (yaku.includes("ドラ")) {
+      bg = "#fffde7"; border = "#fff59d"; color = "#f57f17";
+    }
+
+    return `<span onclick="removeYaku(${idx})" style="display:inline-block; padding:4px 10px; background:${bg}; border:1px solid ${border}; border-radius:14px; font-size:14px; font-weight:bold; color:${color}; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.1);" title="タップで削除">× ${yaku}</span>`;
+  }).join("");
+
+  infoText.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; align-items:center;">${yakuBadges}</div>`;
+
+  // 翻数表示
+  let hanText = `${totalHan}翻`;
+  if (totalHan >= 13) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (役満)</span>`;
+  else if (totalHan >= 11) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (三倍満)</span>`;
+  else if (totalHan >= 8) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (倍満)</span>`;
+  else if (totalHan >= 6) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (跳満)</span>`;
+  else if (totalHan === 5) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (満貫)</span>`;
+
+  const hanDisp = document.getElementById("hanDisplay");
+  if (hanDisp) hanDisp.innerHTML = hanText;
+
+  // --- ② 放銃者エリア（初期未選択＆警告表示） ---
   if (loserArea) {
-    loserArea.style.display = isTsumo ? "none" : "block";
+    if (isTsumo) {
+      loserArea.style.display = "none";
+    } else {
+      loserArea.style.display = "block";
+      renderLoserSection();
+    }
   }
 
-  buttonsArea.innerHTML = ""; 
-  btnAutoSubmit.style.display = "none"; // 初期状態は非表示
-  
-  // ▼【今回の修正】役が認識できず、未登録語句がある場合の専用UI（やり直し・キャンセル）
-  if (totalHan === 0 && globalUnknownWord) {
-    infoText.innerHTML = `
-      <span style="color:#dc3545; font-weight:bold; font-size:18px;">⚠️ 役を認識できません</span><br>
-      <div style="margin:10px 0; padding:8px; background:#f8d7da; color:#721c24; border-radius:5px; font-size:14px;">
-        未登録ワード: <b>「${globalUnknownWord}」</b>
-      </div>
-      <span style="font-size:13px; color:#666;">「やり直し」を押して、正しい役名を言い直してください。</span>
-    `;
+  // --- ③ 符エリアの構築（4列配置、★削除） ---
+  buttonsArea.innerHTML = "";
+  const fuLabel = document.getElementById("fuLabel");
 
-    // ① やり直しボタン（見た目は「やり直し」だが、裏の動きは「追加（学習）」）
-    let btnRetryAsAdd = document.createElement("button");
-    btnRetryAsAdd.innerHTML = "🎤 やり直し";
-    btnRetryAsAdd.style.background = "#28a745"; 
-    btnRetryAsAdd.style.color = "#fff";
-    btnRetryAsAdd.style.border = "none";
-    btnRetryAsAdd.style.padding = "10px 15px";
-    btnRetryAsAdd.style.borderRadius = "5px";
-    btnRetryAsAdd.style.fontSize = "16px";
-    btnRetryAsAdd.style.cursor = "pointer";
-    btnRetryAsAdd.style.flex = "1 1 45%";
-    btnRetryAsAdd.onclick = () => {
-      popup.style.display = "none";
-      isAddingMode = true;  // 学習モードをON
-      startVoiceInput();    // 音声認識を再スタート（※もし普段の関数名が違う場合は書き換えてください）
-    };
-
-    // ② キャンセルボタン（無限ループ回避）
-    let btnCancel = document.createElement("button");
-    btnCancel.innerHTML = "✖ キャンセル";
-    btnCancel.style.background = "#6c757d"; 
-    btnCancel.style.color = "#fff";
-    btnCancel.style.border = "none";
-    btnCancel.style.padding = "10px 15px";
-    btnCancel.style.borderRadius = "5px";
-    btnCancel.style.fontSize = "16px";
-    btnCancel.style.cursor = "pointer";
-    btnCancel.style.flex = "1 1 45%";
-    btnCancel.onclick = () => {
-      popup.style.display = "none";
-      // 裏で持っていた未登録データなどをすべて白紙に戻す
-      globalUnknownWord = "";
-      isAddingMode = false;
-      log("入力をキャンセルしました。");
-    };
-
-    // ボタンを横並びに配置
-    buttonsArea.style.display = "flex";
-    buttonsArea.style.gap = "10px";
-    buttonsArea.appendChild(btnRetryAsAdd);
-    buttonsArea.appendChild(btnCancel);
-  } 
-  // 通常の役が認識されている場合のUI（既存）
-  else {
-    let hanText = `${totalHan}翻`;
-
-    let scaleText = "";
-    if (totalHan >= 13) scaleText = " (役満)";
-    else if (totalHan >= 11) scaleText = " (三倍満)";
-    else if (totalHan >= 8) scaleText = " (倍満)";
-    else if (totalHan >= 6) scaleText = " (跳満)";
-    else if (totalHan === 5) scaleText = " (満貫)";
-
-    if (scaleText !== "") {
-      // 翻数より少し小さめの文字で横に付与します
-      hanText += `<span style="font-size:16px; color:#666; font-weight:normal;">${scaleText}</span>`;
-    }
-
-    if (isKuiseagariApplied) {
-      hanText += `<span style="font-size:14px; color:#555; font-weight:normal;"> (食い下がり)</span>`;
-    }
-    
-    // ▼▼▼ 役の表示を難易度によって色分けするモダンなタグに変更 ▼▼▼
-    let yakuBadges = yakuArray.map(yaku => {
-      let han = YAKU_HAN[yaku] || 1; // 役の翻数を取得
-      let bg = "#fff", border = "#ccc", color = "#333", extra = "";
-
-      // 翻数に応じたカラーテーマの設定
-      if (han === 13) {
-        // 役満（黄金グラデーション）
-        bg = "linear-gradient(135deg, #FFD700, #FF8C00)"; border = "transparent"; color = "#fff";
-        extra = "font-weight:bold; box-shadow:0 2px 4px rgba(255,140,0,0.4); text-shadow:1px 1px 1px rgba(0,0,0,0.3);";
-      } else if (han >= 5) {
-        // 5翻以上（レッド系）
-        bg = "#fce4ec"; border = "#f48fb1"; color = "#c2185b";
-      } else if (han >= 3) {
-        // 3〜4翻（オレンジ系）
-        bg = "#fff3e0"; border = "#ffcc80"; color = "#e65100";
-      } else if (han === 2) {
-        // 2翻（グリーン系）
-        bg = "#e8f5e9"; border = "#a5d6a7"; color = "#2e7d32";
-      } else {
-        // 1翻（ブルー系）
-        bg = "#e3f2fd"; border = "#90caf9"; color = "#1565c0";
-      }
-
-      // 「ドラ」が含まれる場合はボーナスカラー（イエロー系）で上書き
-      if (yaku.includes("ドラ")) {
-        bg = "#fffde7"; border = "#fff59d"; color = "#f57f17";
-      }
-
-      return `<span style="display:inline-block; padding:2px 8px; background:${bg}; border:1px solid ${border}; border-radius:12px; font-size:12px; font-weight:normal; color:${color}; box-shadow:0 1px 2px rgba(0,0,0,0.05); ${extra}">${yaku}</span>`;
-    }).join("");
-    
-    infoText.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:5px; justify-content:center; align-items:center;">
-                            <span style="font-size:12px; color:#666; font-weight:normal; margin-right:2px;">確定役:</span>${yakuBadges}
-                          </div>`;
-    // ▲▲▲ 変更ここまで ▲▲▲
-
-    const hanDisp = document.getElementById("hanDisplay");
-    if (hanDisp) {
-        hanDisp.innerHTML = hanText; // HTMLタグを認識させるため innerHTML に変更
-        hanDisp.style.fontSize = "22px"; 
-    }
+  if (totalHan >= 5 || hasPinfu || hasChiitoitsu || totalHan === 4) {
+    // 自動計算可能な場合は符のボタン群を非表示
+    if (fuLabel) fuLabel.style.display = "none";
+    buttonsArea.style.display = "none";
+  } else {
+    if (fuLabel) fuLabel.style.display = "block";
     buttonsArea.style.display = "grid";
-    buttonsArea.style.gap = "5px";
-    
-    // 自動計算可能な場合
-    if (totalHan >= 5 || hasPinfu || hasChiitoitsu || totalHan === 4) {
-      let autoFu = 30; 
-      if (hasChiitoitsu) autoFu = 25;
-      if (hasPinfu && isTsumo) autoFu = 20;
+    buttonsArea.style.gridTemplateColumns = "repeat(4, 1fr)"; // 4列に変更
+    buttonsArea.style.gap = "6px";
 
-      btnAutoSubmit.style.display = "block";
-      btnAutoSubmit.textContent = `このまま記録 (${autoFu}符)`;
-      btnAutoSubmit.onclick = () => {
-        sendMatchDataToGAS(globalYakuArray, totalHan, autoFu, isOya, isTsumo);
-        popup.style.display = "none";
-      };
-      
-      // ▼▼▼ 符のボタンが不要なときはラベルごと隠す ▼▼▼
-      const fuLabel = document.getElementById("fuLabel");
-      if (fuLabel) fuLabel.style.display = "none";
-      buttonsArea.style.display = "none";
-      // ▲▲▲
-    } 
-    // 符計算が必要な場合
-    else {
-      // ▼▼▼ 符のボタンが必要なときはラベルを表示する ▼▼▼
-      const fuLabel = document.getElementById("fuLabel");
-      if (fuLabel) fuLabel.style.display = "block";
-      buttonsArea.style.display = "grid"; 
-      // ▲▲▲
+    let maxFu = 70;
+    const max2KoutsuYaku = ["混全帯么九", "純全帯幺九", "三色同順", "一気通貫"];
+    if (hasToitoiSanankou) maxFu = 110;
+    else if (yakuArray.some(y => max2KoutsuYaku.includes(y))) maxFu = 100;
 
-      let maxFu = 70;
-      let defaultFu = 30;
-      const max2KoutsuYaku = ["混全帯么九", "純全帯幺九", "三色同順", "一気通貫", "混全帯么九", "純全帯么九"];
-      let hasMax2Koutsu = yakuArray.some(yaku => max2KoutsuYaku.includes(yaku));
-      
-      if (hasToitoiSanankou) { maxFu = 110; defaultFu = 40; } 
-      else if (hasMax2Koutsu) { maxFu = 100; }
+    let allFu = [30, 40, 50, 60, 70, 80, 90, 100, 110];
+    let showFu = allFu.filter(f => f <= maxFu);
 
-      let allFu = [30, 40, 50, 60, 70, 80, 90, 100, 110];
-      let showFu = allFu.filter(f => f <= maxFu);
-      
-      let initialFuList = showFu.filter(f => [30, 40, 50, 60, 70].includes(f));
-      let hiddenFuList = showFu.filter(f => f >= 80);
+    // 標準表示: 30符, 40符, 50符
+    let standardFu = [30, 40, 50].filter(f => showFu.includes(f));
+    let extraFu = showFu.filter(f => !standardFu.includes(f));
 
-      const renderBtn = (fu) => {
-          let btn = document.createElement("button");
-          btn.textContent = fu + "符";
-          if (fu === defaultFu) {
-            btn.style.background = "#007bff"; btn.style.color = "#fff"; btn.style.border = "2px solid #0056b3";
-            btn.textContent = `★ ${fu}符`;
-          } else {
-            btn.style.background = "#f8f9fa"; btn.style.color = "#333"; btn.style.border = "1px solid #ccc";
-          }
-          btn.style.padding = "10px 0"; // 横幅調整
-          btn.style.borderRadius = "5px"; btn.style.fontSize = "16px";
-          btn.style.cursor = "pointer"; 
-          btn.style.width = "100%";
-          btn.style.boxSizing = "border-box"; // 枠線を含めてサイズ計算
-          btn.onclick = () => { sendMatchDataToGAS(globalYakuArray, totalHan, fu, isOya, isTsumo); popup.style.display = "none"; };
-          return btn;
-      };
+    const renderFuButtons = (fuList, showAllBtn = true) => {
+      buttonsArea.innerHTML = "";
+      fuList.forEach(f => {
+        let btn = document.createElement("button");
+        btn.textContent = `${f}符`; // ★を削除
+        updateFuButtonStyle(btn, f === currentSelectedFu);
+        btn.onclick = () => {
+          currentSelectedFu = f;
+          // 全ボタンのスタイルを更新
+          Array.from(buttonsArea.children).forEach(child => {
+            let val = parseInt(child.textContent);
+            if (!isNaN(val)) updateFuButtonStyle(child, val === currentSelectedFu);
+          });
+        };
+        buttonsArea.appendChild(btn);
+      });
 
-      initialFuList.forEach(f => buttonsArea.appendChild(renderBtn(f)));
-
-      if (hiddenFuList.length > 0) {
-          let moreBtn = document.createElement("button");
-          moreBtn.textContent = "全表示";
-          moreBtn.style.background = "#6c757d"; moreBtn.style.color = "#fff";
-          moreBtn.style.padding = "10px 15px"; moreBtn.style.borderRadius = "5px";
-          moreBtn.style.flex = "1 1 40%";
-          moreBtn.onclick = () => {
-              moreBtn.remove();
-              hiddenFuList.forEach(f => buttonsArea.appendChild(renderBtn(f)));
-          };
-          buttonsArea.appendChild(moreBtn);
+      // 右端に「全表示」ボタンを配置
+      if (showAllBtn && extraFu.length > 0) {
+        let moreBtn = document.createElement("button");
+        moreBtn.textContent = "全表示";
+        moreBtn.style.background = "#6c757d";
+        moreBtn.style.color = "#fff";
+        moreBtn.style.border = "none";
+        moreBtn.style.borderRadius = "5px";
+        moreBtn.style.padding = "8px 0";
+        moreBtn.style.fontWeight = "bold";
+        moreBtn.style.cursor = "pointer";
+        moreBtn.onclick = () => {
+          renderFuButtons(showFu, false); // 全表示に切り替え
+        };
+        buttonsArea.appendChild(moreBtn);
       }
-    }
+    };
+
+    renderFuButtons(standardFu, true);
   }
+
+  // 確定ボタンの検証状態を更新
+  validateConfirmButton();
+
+  popup.style.display = "flex";
+}
+
+// 符ボタンのスタイル適用関数
+function updateFuButtonStyle(btn, isSelected) {
+  btn.style.padding = "10px 0";
+  btn.style.borderRadius = "5px";
+  btn.style.fontSize = "15px";
+  btn.style.fontWeight = "bold";
+  btn.style.cursor = "pointer";
+  btn.style.width = "100%";
+
+  if (isSelected) {
+    btn.style.background = "#007bff";
+    btn.style.color = "#fff";
+    btn.style.border = "2px solid #0056b3";
+  } else {
+    btn.style.background = "#f8f9fa";
+    btn.style.color = "#333";
+    btn.style.border = "1px solid #ccc";
+  }
+}
+
+// 放銃者セクションの描画関数
+function renderLoserSection() {
+  const loserContainer = document.getElementById('loserButtonsContainer');
+  const winnerSelect = document.getElementById('selectWinner');
+  if (!loserContainer || !winnerSelect || !currentTableData) return;
+
+  loserContainer.innerHTML = "";
+
+  const players = [
+    { wind: "東", name: currentTableData.eastName || "東家" },
+    { wind: "南", name: currentTableData.southName || "南家" },
+    { wind: "西", name: currentTableData.westName || "西家" },
+    { wind: "北", name: currentTableData.northName || "北家" }
+  ];
+
+  const currentWinner = winnerSelect.value;
+  const losers = players.filter(p => p.wind !== currentWinner);
+
+  losers.forEach(p => {
+    let btn = document.createElement("div");
+    btn.textContent = p.name;
+    btn.style.flex = "1";
+    btn.style.padding = "10px 0";
+    btn.style.textAlign = "center";
+    btn.style.borderRadius = "5px";
+    btn.style.cursor = "pointer";
+    btn.style.fontWeight = "bold";
+    btn.style.fontSize = "14px";
+
+    if (p.wind === currentSelectedLoser) {
+      btn.style.background = "#dc3545";
+      btn.style.color = "#fff";
+      btn.style.border = "2px solid #dc3545";
+    } else {
+      btn.style.background = "#fff";
+      btn.style.color = "#333";
+      btn.style.border = "2px solid #dc3545"; // 未選択時も注意を促す赤枠線
+    }
+
+    btn.onclick = () => {
+      currentSelectedLoser = p.wind;
+      document.getElementById('selectLoser').value = p.wind;
+      renderLoserSection();
+      validateConfirmButton();
+    };
+    loserContainer.appendChild(btn);
+  });
+
+  winnerSelect.onchange = () => {
+    if (currentSelectedLoser === winnerSelect.value) currentSelectedLoser = "";
+    renderLoserSection();
+    validateConfirmButton();
+  };
+}
+
+// 確定ボタンの有効/無効化切り替え
+function validateConfirmButton() {
+  const btnSubmit = document.getElementById('btnSubmitMatch');
+  const loserNotice = document.getElementById('loserNotice');
+  const isTsumo = currentConfirmParams.isTsumo;
+
+  if (!isTsumo && !currentSelectedLoser) {
+    // ロンで放銃者が未選択の場合は無効化
+    if (btnSubmit) {
+      btnSubmit.disabled = true;
+      btnSubmit.style.background = "#cccccc";
+      btnSubmit.style.color = "#666666";
+      btnSubmit.style.cursor = "not-allowed";
+    }
+    if (loserNotice) loserNotice.style.display = "block";
+  } else {
+    // 有効化
+    if (btnSubmit) {
+      btnSubmit.disabled = false;
+      btnSubmit.style.background = "#28a745";
+      btnSubmit.style.color = "#ffffff";
+      btnSubmit.style.cursor = "pointer";
+    }
+    if (loserNotice) loserNotice.style.display = "none";
+  }
+}
+
+// 「確定」ボタンを押した時の送信処理
+function submitConfirmedMatch() {
+  const { totalHan, isOya, isTsumo } = currentConfirmParams;
+  
+  // ポップアップを閉じる
+  document.getElementById('confirmPopup').style.display = "none";
+  
+  // GASへ送信
+  sendMatchDataToGAS(globalYakuArray, totalHan, currentSelectedFu, isOya, isTsumo);
+}
+
 if (typeof currentTableData !== 'undefined' && currentTableData !== null) {
     const winnerSelect = document.getElementById('selectWinner');
     
