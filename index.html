@@ -1057,6 +1057,9 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
 
   // 翻数表示
   let hanText = `${totalHan}翻`;
+  if (isKuiseagariApplied) {
+    hanText += `<span style="font-size:14px; color:#e65100; font-weight:bold; margin-left:4px;">(食い下がり)</span>`;
+  }
   if (totalHan >= 13) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (役満)</span>`;
   else if (totalHan >= 11) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (三倍満)</span>`;
   else if (totalHan >= 8) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (倍満)</span>`;
