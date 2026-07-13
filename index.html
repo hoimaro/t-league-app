@@ -728,9 +728,10 @@ function processSpeech(text) {
   let isKuiseagari = false;
   let remainingText = normalizedText;
 
-  if (remainingText.includes("鳴きあり") || remainingText.includes("なきあり")) {
+  const kuiseagariPattern = /(鳴き|なき|ナキ|泣き)(あり|アリ|有り)/g;
+  if (kuiseagariPattern.test(remainingText)) {
     isKuiseagari = true;
-    remainingText = remainingText.replace(/鳴きあり|なきあり/g, "");
+    remainingText = remainingText.replace(kuiseagariPattern, "");
   }
 
   const sortedKeys = Object.keys(dictionary).sort((a, b) => b.length - a.length);
