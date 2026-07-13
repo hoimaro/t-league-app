@@ -759,7 +759,24 @@ function processSpeech(text) {
     globalAddedYaku = ""; 
   }
 
-  globalYakuArray = [...new Set(globalYakuArray)];
+globalYakuArray = [...new Set(globalYakuArray)];
+
+  // ▼▼▼ 追加：リーチ状態の自動付与ロジック ▼▼▼
+  let activeRiichiList = [];
+  if (currentTableData && currentTableData.riichiStatus) {
+    activeRiichiList = currentTableData.riichiStatus.split(",").filter(w => w !== "");
+  }
+
+  // 自分がリーチ中かどうか判定
+  if (currentTableData && currentTableData.mySeat && activeRiichiList.includes(currentTableData.mySeat)) {
+    // 「ダブルリーチ」が含まれておらず、かつ「リーチ」も未登録の場合に自動追加
+    if (!globalYakuArray.includes("ダブルリーチ") && !globalYakuArray.includes("リーチ")) {
+      globalYakuArray.push("リーチ");
+      log("【自動付加】リーチ状態のため「リーチ」を役に追加しました。");
+    }
+  }
+  // ▲▲▲ 追加ここまで ▲▲▲
+
   globalYakuArray.sort((a, b) => {
     let indexA = YAKU_ORDER.indexOf(a);
     let indexB = YAKU_ORDER.indexOf(b);
