@@ -874,8 +874,10 @@ function getCurrentDisplayWind(startWind, kyokuString) {
 }
 
 
-// 統合された確認・アクションポップアップ
-// 選択中の状態を保持するグローバル変数
+// =========================================
+// 認識結果の確認ポップアップ関連処理
+// =========================================
+
 let currentSelectedFu = 30;
 let currentSelectedLoser = "";
 let currentConfirmParams = {};
@@ -886,162 +888,10 @@ function removeYaku(index) {
     alert("役は最低1つ必要です。");
     return;
   }
-  // 指定された役をリストから削除
   globalYakuArray.splice(index, 1);
-  
-  // 再計算してダイアログを再描画
   let isTsumo = globalYakuArray.includes("ツモ") || globalYakuArray.includes("嶺上開花") || 
                 globalYakuArray.includes("海底撈月") || globalYakuArray.includes("天和") || globalYakuArray.includes("地和");
   calculateScore(globalYakuArray, globalIsKuiseagari, isTsumo, false);
-}
-
-// 認識結果の確認ポップアップ表示関数
-function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, isTsumo, isOya, yakuArray, isKuiseagariApplied) {
-  const popup = document.getElementById('confirmPopup');
-  const infoText = document.getElementById('confirmPopupInfo');
-  const buttonsArea = document.getElementById('fuButtonsArea');
-  const loserArea = document.getElementById('loserArea');
-  
-  // パラメータを保存
-  currentConfirmParams = { totalHan, isOya, isTsumo, yakuArray };
-  
-  // 初期値のリセット
-  currentSelectedLoser = ""; // ロン時は最初は未選択状態
-  currentSelectedFu = 30;
-  if (hasChiitoitsu) currentSelectedFu = 25;
-  if (hasPinfu && isTsumo) currentSelectedFu = 20;
-
-  // アガリ者プルダウンの初期化
-  if (typeof currentTableData !== 'undefined' && currentTableData !== null) {
-    const players = [
-      { wind: "東", name: currentTableData.eastName || "東家" },
-      { wind: "南", name: currentTableData.southName || "南家" },
-      { wind: "西", name: currentTableData.westName || "西家" },
-      { wind: "北", name: currentTableData.northName || "北家" }
-    ];
-    let optionsHtml = "";
-    players.forEach(p => {
-      optionsHtml += `<option value="${p.wind}">${p.name}</option>`;
-    });
-    const winSelect = document.getElementById('selectWinner');
-    if (winSelect) {
-      winSelect.innerHTML = optionsHtml;
-      if (currentTableData.mySeat) winSelect.value = currentTableData.mySeat;
-    }
-  }
-
-  // --- ① 上がり役の表示（「確定役：」削除、フォント1サイズUP、×印タップで削除） ---
-  let yakuBadges = yakuArray.map((yaku, idx) => {
-    let han = YAKU_HAN[yaku] || 1;
-    let bg = "#e3f2fd", border = "#90caf9", color = "#1565c0";
-
-    if (han === 13) {
-      bg = "linear-gradient(135deg, #FFD700, #FF8C00)"; border = "transparent"; color = "#fff";
-    } else if (han >= 5) {
-      bg = "#fce4ec"; border = "#f48fb1"; color = "#c2185b";
-    } else if (han >= 3) {
-      bg = "#fff3e0"; border = "#ffcc80"; color = "#e65100";
-    } else if (han === 2) {
-      bg = "#e8f5e9"; border = "#a5d6a7"; color = "#2e7d32";
-    }
-    if (yaku.includes("ドラ")) {
-      bg = "#fffde7"; border = "#fff59d"; color = "#f57f17";
-    }
-
-    return `<span onclick="removeYaku(${idx})" style="display:inline-block; padding:4px 10px; background:${bg}; border:1px solid ${border}; border-radius:14px; font-size:14px; font-weight:bold; color:${color}; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.1);" title="タップで削除">× ${yaku}</span>`;
-  }).join("");
-
-  infoText.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; align-items:center;">${yakuBadges}</div>`;
-
-  // 翻数表示
-  let hanText = `${totalHan}翻`;
-  if (totalHan >= 13) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (役満)</span>`;
-  else if (totalHan >= 11) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (三倍満)</span>`;
-  else if (totalHan >= 8) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (倍満)</span>`;
-  else if (totalHan >= 6) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (跳満)</span>`;
-  else if (totalHan === 5) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (満貫)</span>`;
-
-  const hanDisp = document.getElementById("hanDisplay");
-  if (hanDisp) hanDisp.innerHTML = hanText;
-
-  // --- ② 放銃者エリア（初期未選択＆警告表示） ---
-  if (loserArea) {
-    if (isTsumo) {
-      loserArea.style.display = "none";
-    } else {
-      loserArea.style.display = "block";
-      renderLoserSection();
-    }
-  }
-
-  // --- ③ 符エリアの構築（4列配置、★削除） ---
-  buttonsArea.innerHTML = "";
-  const fuLabel = document.getElementById("fuLabel");
-
-  if (totalHan >= 5 || hasPinfu || hasChiitoitsu || totalHan === 4) {
-    // 自動計算可能な場合は符のボタン群を非表示
-    if (fuLabel) fuLabel.style.display = "none";
-    buttonsArea.style.display = "none";
-  } else {
-    if (fuLabel) fuLabel.style.display = "block";
-    buttonsArea.style.display = "grid";
-    buttonsArea.style.gridTemplateColumns = "repeat(4, 1fr)"; // 4列に変更
-    buttonsArea.style.gap = "6px";
-
-    let maxFu = 70;
-    const max2KoutsuYaku = ["混全帯么九", "純全帯幺九", "三色同順", "一気通貫"];
-    if (hasToitoiSanankou) maxFu = 110;
-    else if (yakuArray.some(y => max2KoutsuYaku.includes(y))) maxFu = 100;
-
-    let allFu = [30, 40, 50, 60, 70, 80, 90, 100, 110];
-    let showFu = allFu.filter(f => f <= maxFu);
-
-    // 標準表示: 30符, 40符, 50符
-    let standardFu = [30, 40, 50].filter(f => showFu.includes(f));
-    let extraFu = showFu.filter(f => !standardFu.includes(f));
-
-    const renderFuButtons = (fuList, showAllBtn = true) => {
-      buttonsArea.innerHTML = "";
-      fuList.forEach(f => {
-        let btn = document.createElement("button");
-        btn.textContent = `${f}符`; // ★を削除
-        updateFuButtonStyle(btn, f === currentSelectedFu);
-        btn.onclick = () => {
-          currentSelectedFu = f;
-          // 全ボタンのスタイルを更新
-          Array.from(buttonsArea.children).forEach(child => {
-            let val = parseInt(child.textContent);
-            if (!isNaN(val)) updateFuButtonStyle(child, val === currentSelectedFu);
-          });
-        };
-        buttonsArea.appendChild(btn);
-      });
-
-      // 右端に「全表示」ボタンを配置
-      if (showAllBtn && extraFu.length > 0) {
-        let moreBtn = document.createElement("button");
-        moreBtn.textContent = "全表示";
-        moreBtn.style.background = "#6c757d";
-        moreBtn.style.color = "#fff";
-        moreBtn.style.border = "none";
-        moreBtn.style.borderRadius = "5px";
-        moreBtn.style.padding = "8px 0";
-        moreBtn.style.fontWeight = "bold";
-        moreBtn.style.cursor = "pointer";
-        moreBtn.onclick = () => {
-          renderFuButtons(showFu, false); // 全表示に切り替え
-        };
-        buttonsArea.appendChild(moreBtn);
-      }
-    };
-
-    renderFuButtons(standardFu, true);
-  }
-
-  // 確定ボタンの検証状態を更新
-  validateConfirmButton();
-
-  popup.style.display = "flex";
 }
 
 // 符ボタンのスタイル適用関数
@@ -1100,7 +950,7 @@ function renderLoserSection() {
     } else {
       btn.style.background = "#fff";
       btn.style.color = "#333";
-      btn.style.border = "2px solid #dc3545"; // 未選択時も注意を促す赤枠線
+      btn.style.border = "2px solid #dc3545";
     }
 
     btn.onclick = () => {
@@ -1126,7 +976,6 @@ function validateConfirmButton() {
   const isTsumo = currentConfirmParams.isTsumo;
 
   if (!isTsumo && !currentSelectedLoser) {
-    // ロンで放銃者が未選択の場合は無効化
     if (btnSubmit) {
       btnSubmit.disabled = true;
       btnSubmit.style.background = "#cccccc";
@@ -1135,7 +984,6 @@ function validateConfirmButton() {
     }
     if (loserNotice) loserNotice.style.display = "block";
   } else {
-    // 有効化
     if (btnSubmit) {
       btnSubmit.disabled = false;
       btnSubmit.style.background = "#28a745";
@@ -1146,14 +994,149 @@ function validateConfirmButton() {
   }
 }
 
+// 認識結果の確認ポップアップ表示関数
+function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, isTsumo, isOya, yakuArray, isKuiseagariApplied) {
+  const popup = document.getElementById('confirmPopup');
+  const infoText = document.getElementById('confirmPopupInfo');
+  const buttonsArea = document.getElementById('fuButtonsArea');
+  const loserArea = document.getElementById('loserArea');
+  
+  currentConfirmParams = { totalHan, isOya, isTsumo, yakuArray };
+  currentSelectedLoser = ""; 
+  currentSelectedFu = 30;
+  if (hasChiitoitsu) currentSelectedFu = 25;
+  if (hasPinfu && isTsumo) currentSelectedFu = 20;
+
+  if (typeof currentTableData !== 'undefined' && currentTableData !== null) {
+    const players = [
+      { wind: "東", name: currentTableData.eastName || "東家" },
+      { wind: "南", name: currentTableData.southName || "南家" },
+      { wind: "西", name: currentTableData.westName || "西家" },
+      { wind: "北", name: currentTableData.northName || "北家" }
+    ];
+    let optionsHtml = "";
+    players.forEach(p => {
+      optionsHtml += `<option value="${p.wind}">${p.name}</option>`;
+    });
+    const winSelect = document.getElementById('selectWinner');
+    if (winSelect) {
+      winSelect.innerHTML = optionsHtml;
+      if (currentTableData.mySeat) winSelect.value = currentTableData.mySeat;
+    }
+  }
+
+  // ① 上がり役の表示
+  let yakuBadges = yakuArray.map((yaku, idx) => {
+    let han = YAKU_HAN[yaku] || 1;
+    let bg = "#e3f2fd", border = "#90caf9", color = "#1565c0";
+
+    if (han === 13) {
+      bg = "linear-gradient(135deg, #FFD700, #FF8C00)"; border = "transparent"; color = "#fff";
+    } else if (han >= 5) {
+      bg = "#fce4ec"; border = "#f48fb1"; color = "#c2185b";
+    } else if (han >= 3) {
+      bg = "#fff3e0"; border = "#ffcc80"; color = "#e65100";
+    } else if (han === 2) {
+      bg = "#e8f5e9"; border = "#a5d6a7"; color = "#2e7d32";
+    }
+    if (yaku.includes("ドラ")) {
+      bg = "#fffde7"; border = "#fff59d"; color = "#f57f17";
+    }
+
+    return `<span onclick="removeYaku(${idx})" style="display:inline-block; padding:4px 10px; background:${bg}; border:1px solid ${border}; border-radius:14px; font-size:14px; font-weight:bold; color:${color}; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.1);" title="タップで削除">× ${yaku}</span>`;
+  }).join("");
+
+  infoText.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; align-items:center;">${yakuBadges}</div>`;
+
+  // 翻数表示
+  let hanText = `${totalHan}翻`;
+  if (totalHan >= 13) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (役満)</span>`;
+  else if (totalHan >= 11) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (三倍満)</span>`;
+  else if (totalHan >= 8) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (倍満)</span>`;
+  else if (totalHan >= 6) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (跳満)</span>`;
+  else if (totalHan === 5) hanText += `<span style="font-size:16px; color:#666; font-weight:normal;"> (満貫)</span>`;
+
+  const hanDisp = document.getElementById("hanDisplay");
+  if (hanDisp) hanDisp.innerHTML = hanText;
+
+  // ② 放銃者エリア
+  if (loserArea) {
+    if (isTsumo) {
+      loserArea.style.display = "none";
+    } else {
+      loserArea.style.display = "block";
+      renderLoserSection();
+    }
+  }
+
+  // ③ 符エリアの構築
+  buttonsArea.innerHTML = "";
+  const fuLabel = document.getElementById("fuLabel");
+
+  if (totalHan >= 5 || hasPinfu || hasChiitoitsu || totalHan === 4) {
+    if (fuLabel) fuLabel.style.display = "none";
+    buttonsArea.style.display = "none";
+  } else {
+    if (fuLabel) fuLabel.style.display = "block";
+    buttonsArea.style.display = "grid";
+    buttonsArea.style.gridTemplateColumns = "repeat(4, 1fr)";
+    buttonsArea.style.gap = "6px";
+
+    let maxFu = 70;
+    const max2KoutsuYaku = ["混全帯么九", "純全帯幺九", "三色同順", "一気通貫"];
+    if (hasToitoiSanankou) maxFu = 110;
+    else if (yakuArray.some(y => max2KoutsuYaku.includes(y))) maxFu = 100;
+
+    let allFu = [30, 40, 50, 60, 70, 80, 90, 100, 110];
+    let showFu = allFu.filter(f => f <= maxFu);
+
+    let standardFu = [30, 40, 50].filter(f => showFu.includes(f));
+    let extraFu = showFu.filter(f => !standardFu.includes(f));
+
+    const renderFuButtons = (fuList, showAllBtn = true) => {
+      buttonsArea.innerHTML = "";
+      fuList.forEach(f => {
+        let btn = document.createElement("button");
+        btn.textContent = `${f}符`;
+        updateFuButtonStyle(btn, f === currentSelectedFu);
+        btn.onclick = () => {
+          currentSelectedFu = f;
+          Array.from(buttonsArea.children).forEach(child => {
+            let val = parseInt(child.textContent);
+            if (!isNaN(val)) updateFuButtonStyle(child, val === currentSelectedFu);
+          });
+        };
+        buttonsArea.appendChild(btn);
+      });
+
+      if (showAllBtn && extraFu.length > 0) {
+        let moreBtn = document.createElement("button");
+        moreBtn.textContent = "全表示";
+        moreBtn.style.background = "#6c757d";
+        moreBtn.style.color = "#fff";
+        moreBtn.style.border = "none";
+        moreBtn.style.borderRadius = "5px";
+        moreBtn.style.padding = "8px 0";
+        moreBtn.style.fontWeight = "bold";
+        moreBtn.style.cursor = "pointer";
+        moreBtn.onclick = () => {
+          renderFuButtons(showFu, false);
+        };
+        buttonsArea.appendChild(moreBtn);
+      }
+    };
+
+    renderFuButtons(standardFu, true);
+  }
+
+  validateConfirmButton();
+  popup.style.display = "flex";
+}
+
 // 「確定」ボタンを押した時の送信処理
 function submitConfirmedMatch() {
   const { totalHan, isOya, isTsumo } = currentConfirmParams;
-  
-  // ポップアップを閉じる
   document.getElementById('confirmPopup').style.display = "none";
-  
-  // GASへ送信
   sendMatchDataToGAS(globalYakuArray, totalHan, currentSelectedFu, isOya, isTsumo);
 }
 
