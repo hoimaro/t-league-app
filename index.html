@@ -1458,12 +1458,8 @@ function formatScorePatternB(han, fu, isOya, isTsumo) {
     scoreText = `${totalBase.toLocaleString()}${honbaStr}`;
   }
 
-  // 供託・リーチ棒の集計
-  let riichiCount = 0;
-  if (currentTableData && currentTableData.riichiStatus) {
-    riichiCount = currentTableData.riichiStatus.split(",").filter(w => w !== "").length;
-  }
-  const totalKyotaku = (Number((currentTableData && currentTableData.kyotaku) || 0) + riichiCount) * 1000;
+  // 供託の集計（二重加算を解消）
+  const totalKyotaku = Number((currentTableData && currentTableData.kyotaku) || 0) * 1000;
   
   let html = `<div style="font-size:20px; font-weight:bold; margin-bottom:12px; color:#333;">${han}翻${fu}符</div>`;
   html += `<div style="font-size:22px; font-weight:bold; color:#d32f2f; margin-bottom:8px;">${scoreText}</div>`;
