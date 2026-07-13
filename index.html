@@ -62,27 +62,29 @@
     }
 
     .riichi-button {
-      position: absolute;    /* 卓の中で自由に配置するための魔法の言葉 */
-      bottom: 20px;          /* 下のフチから20px浮かす */
-      right: 20px;           /* 右のフチから20px浮かす */
+      position: absolute;
+      bottom: 15px;
+      right: 15px;
   
-      background-color: #ff1744; /* 目立つ赤色 */
-      color: white;          /* 文字は白 */
-      font-size: 18px;       /* 少し大きめの文字 */
-      font-weight: bold;     /* 太字 */
-      padding: 12px 24px;    /* ボタンの余白（縦 横） */
+      /* 重厚感のある朱赤グラデーション */
+      background: linear-gradient(145deg, #e53935, #b71c1c);
+      color: white;
+      font-size: 15px;
+      font-weight: bold;
+      padding: 10px 18px;
+      letter-spacing: 1px;
   
-      border: 2px solid white; /* 白い枠線 */
-      border-radius: 8px;    /* 角を少し丸くする */
-      box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.5); /* 立体的な影 */
-      cursor: pointer;       /* 押せる雰囲気のマウスカーソル */
-      z-index: 10;           /* 他の文字より手前に表示する */
+      border: 1.5px solid #ff8a80;
+      border-radius: 20px; /* カプセル型で卓になじませる */
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      cursor: pointer;
+      z-index: 10;
+      transition: all 0.2s ease;
     }
 
-    /* 押した時に少し沈むアクション */
     .riichi-button:active {
       transform: translateY(2px);
-      box-shadow: 0px 0px 2px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
     }
 
 </style>
@@ -118,42 +120,44 @@
     </div>
   </div>
 
-  <div id="mainGameView" style="display: none;">
+<div id="mainGameView" style="display: none;">
     <h2>T-LEAGUE 対局管理</h2>
-    <div class="mahjong-table-container" style="background:#437c43; width:100%; max-width:400px; margin:0 auto; aspect-ratio:1/1; border:8px solid #5d4037; border-radius:15px; position:relative; box-sizing:border-box; padding:10px;">
+    <!-- ▼ 卓全体のリアルなラシャマットグラデーション化 ▼ -->
+    <div class="mahjong-table-container" style="background: radial-gradient(circle, #2e7d32 0%, #1b5e20 80%, #0d3b13 100%); width:100%; max-width:400px; margin:0 auto; aspect-ratio:1/1; border:10px solid #3e2723; border-radius:15px; position:relative; box-sizing:border-box; padding:10px; box-shadow: inset 0 0 20px rgba(0,0,0,0.6), 0 8px 20px rgba(0,0,0,0.4);">
       
-      <!-- 中央の局情報（サイズを100pxに固定） -->
-      <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:#e0e0e0; width:100px; height:100px; border-radius:10px; display:flex; flex-direction:column; justify-content:center; align-items:center; font-weight:bold; font-size:14px; line-height:1.4; box-shadow:0 2px 5px rgba(0,0,0,0.2);">
+      <!-- 中央の局情報（立体的なプレート調へ） -->
+      <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background: linear-gradient(145deg, #ffffff, #e0e0e0); width:100px; height:100px; border-radius:12px; display:flex; flex-direction:column; justify-content:center; align-items:center; font-weight:bold; font-size:14px; line-height:1.4; box-shadow:0 4px 10px rgba(0,0,0,0.3), inset 0 1px 0 #fff; border:1px solid #ccc;">
         <span id="uiKyoku">東1局</span>
         <span id="uiHonba">0本場</span>
         <span id="uiKyotaku" style="font-size:12px; color:#333;">供託: 0</span>
       </div>
       
       <!-- 奥（対面） -->
-      <div id="boxToimen" style="position:absolute; top:10px; left:50%; transform:translateX(-50%); background:#1a1a1a; color:#fff; padding:6px 10px; border-radius:5px; text-align:center; min-width:70px;">
+      <div id="boxToimen" style="position:absolute; top:10px; left:50%; transform:translateX(-50%); background:#1a1a1a; color:#fff; padding:6px 10px; border-radius:5px; text-align:center; min-width:70px; border:1px solid #444;">
         <div class="p-name" style="font-size:13px;">対面</div>
         <div class="p-score" style="font-size:15px; font-weight:bold; color:#ffeb3b;">25000</div>
       </div>
       
       <!-- 右（下家） -->
-      <div id="boxShimocha" style="position:absolute; top:50%; right:8px; transform:translateY(-50%); background:#1a1a1a; color:#fff; padding:6px 10px; border-radius:5px; text-align:center; min-width:70px;">
+      <div id="boxShimocha" style="position:absolute; top:50%; right:8px; transform:translateY(-50%); background:#1a1a1a; color:#fff; padding:6px 10px; border-radius:5px; text-align:center; min-width:70px; border:1px solid #444;">
         <div class="p-name" style="font-size:13px;">下家</div>
         <div class="p-score" style="font-size:15px; font-weight:bold; color:#ffeb3b;">25000</div>
       </div>
       
       <!-- 左（上家） -->
-      <div id="boxKamicha" style="position:absolute; top:50%; left:8px; transform:translateY(-50%); background:#1a1a1a; color:#fff; padding:6px 10px; border-radius:5px; text-align:center; min-width:70px;">
+      <div id="boxKamicha" style="position:absolute; top:50%; left:8px; transform:translateY(-50%); background:#1a1a1a; color:#fff; padding:6px 10px; border-radius:5px; text-align:center; min-width:70px; border:1px solid #444;">
         <div class="p-name" style="font-size:13px;">上家</div>
         <div class="p-score" style="font-size:15px; font-weight:bold; color:#ffeb3b;">25000</div>
       </div>
       
-      <!-- 手前（自分） -->
-      <div id="boxJibun" style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); background:#1a1a1a; color:#fff; padding:6px 10px; border-radius:5px; text-align:center; min-width:70px; border:2px solid #e57373; box-shadow:0 0 8px #e57373;">
-        <div class="p-name" style="font-size:13px; color:#e57373; font-weight:bold;">自分</div>
+      <!-- 手前（自分）※赤枠・赤文字を解除し、他と同等に統一 -->
+      <div id="boxJibun" style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); background:#1a1a1a; color:#fff; padding:6px 10px; border-radius:5px; text-align:center; min-width:70px; border:1px solid #444;">
+        <div class="p-name" style="font-size:13px; font-weight:bold;">自分</div>
         <div class="p-score" style="font-size:15px; font-weight:bold; color:#ffeb3b;">25000</div>
       </div>
+      
       <button id="btnRiichi" class="riichi-button">リーチ</button>
-    </div> <!-- mahjong-table-container の終わり -->
+    </div>
 
     <div class="controls" style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
       <button id="micBtn" disabled>システムの準備中...</button>
@@ -391,18 +395,34 @@ const players = [
     { boxId: "boxKamicha",  data: players[(myIndex + 3) % 4] }
   ];
 
-  // 4. HTMLへの書き込みと風バッジの追加
+  // 4. HTMLへの書き込みと風バッジ・親（東家）強調の追加
   uiMap.forEach(p => {
     let boxEl = document.getElementById(p.boxId);
     if (boxEl) {
-      // p-name と p-score のクラスを持つ要素を探して書き換え
       let nameEl = boxEl.querySelector(".p-name");
       let scoreEl = boxEl.querySelector(".p-score");
 
       if (nameEl) nameEl.textContent = p.data.name;
       if (scoreEl) scoreEl.textContent = Number(p.data.score).toLocaleString();
 
-      // 風バッジの追加
+      // ★親（東家）のプレイヤーを赤枠・赤字で強調表示
+      if (p.data.wind === "東") {
+        boxEl.style.border = "2px solid #ff5252";
+        boxEl.style.boxShadow = "0 0 10px rgba(255, 82, 82, 0.7)";
+        if (nameEl) {
+          nameEl.style.color = "#ff5252";
+          nameEl.style.fontWeight = "bold";
+        }
+      } else {
+        boxEl.style.border = "1px solid #444";
+        boxEl.style.boxShadow = "none";
+        if (nameEl) {
+          nameEl.style.color = "#ffffff";
+          nameEl.style.fontWeight = "normal";
+        }
+      }
+
+      // 風バッジの追加処理（既存のまま）
       let oldBadge = boxEl.querySelector(".wind-badge");
       if (oldBadge) oldBadge.remove();
 
@@ -1421,12 +1441,16 @@ function updateRiichiButtonUI(isRiichi) {
   if (!btn) return;
   
   if (isRiichi) {
-    btn.style.backgroundColor = "#ff1744"; 
-    btn.style.border = "4px solid white";
+    // リーチ中（取消状態）：オレンジ調の落ちついたグラデーション
+    btn.style.background = "linear-gradient(145deg, #f57c00, #e65100)"; 
+    btn.style.borderColor = "#ffe0b2";
+    btn.style.boxShadow = "inset 0 2px 4px rgba(0,0,0,0.4)";
     btn.innerText = "取消"; 
   } else {
-    btn.style.backgroundColor = "#4caf50"; 
-    btn.style.border = "2px solid white";
+    // 通常状態：朱赤の立体グラデーション
+    btn.style.background = "linear-gradient(145deg, #e53935, #b71c1c)"; 
+    btn.style.borderColor = "#ff8a80";
+    btn.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)";
     btn.innerText = "リーチ";
   }
 }
