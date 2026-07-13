@@ -1603,14 +1603,78 @@ function updateRyukyokuPreview() {
   document.getElementById("ryukyokuPreview").textContent = text;
 }
 
-// 「確定」ボタンを押したときの処理（アラート非表示・即時レスポンス版）
+// 「確定」ボタンを押したときの処理（即時画面更新・先読み対応版）
 async function submitRyukyoku() {
   // 1. 流局入力ポップアップを閉じる
   document.getElementById("ryukyokuPopup").style.display = "none";
   
-  // 2. アガリ時と同じ暗転モーダルで処理中を表示（ブラウザ標準のアラートは表示しません）
+  // 2. ▼▼▼ 先読み計算：手元データで即座に点数移動と局進行を適用 ▼▼▼
+  const winds = ["東", "南", "西", "北"];
+  const currentKyokuStr = (currentTableData && currentTableData.kyoku) || "東1局";
+  const match = currentKyokuStr.match(/(東|南|西|北)(\d+)局/);
+  let ba = "東";
+  let kyokuNum = 1;
+  if (match) {
+    ba = match[1];
+    kyokuNum = Number(match[2]);
+  }
+  
+  // 現在の親の風を判定 (1局:東, 2局:南, 3局:西, 4局:北)
+  let currentDealerWind = winds[kyokuNum - 1] || "東";
+
+  // テンパイ者・ノーテン者の集計
+  let tenpaiWinds = [];
+  let notenWinds = [];
+  winds.forEach(w => {
+    if (tenpaiStatus[w]) tenpaiWinds.push(w);
+    else notenWinds.push(w);
+  });
+
+  // 点数移動の計算（ノーテン罰符：場に合計3,000点）
+  let scoreDiff = { "東": 0, "南": 0, "西": 0, "北": 0 };
+  if (tenpaiWinds.length > 0 && tenpaiWinds.length < 4) {
+    let receivePoint = 3000 / tenpaiWinds.length;
+    let payPoint = 3000 / notenWinds.length;
+    tenpaiWinds.forEach(w => scoreDiff[w] = receivePoint);
+    notenWinds.forEach(w => scoreDiff[w] = -payPoint);
+  }
+
+  // 得点の仮更新
+  currentTableData.eastScore = Number(currentTableData.eastScore || 25000) + scoreDiff["東"];
+  currentTableData.southScore = Number(currentTableData.southScore || 25000) + scoreDiff["南"];
+  currentTableData.westScore = Number(currentTableData.westScore || 25000) + scoreDiff["西"];
+  currentTableData.northScore = Number(currentTableData.northScore || 25000) + scoreDiff["北"];
+
+  // 局と本場の進行計算
+  const isDealerTenpai = !!tenpaiStatus[currentDealerWind];
+  let currentHonba = Number(currentTableData.honba || 0);
+  let nextHonba = currentHonba + 1; // 流局時は親流れでも本場+1
+  let nextBa = ba;
+  let nextKyokuNum = kyokuNum;
+
+  if (!isDealerTenpai) {
+    // 親がノーテンなら親流れ（次局へ進む）
+    nextKyokuNum++;
+    if (nextKyokuNum > 4) {
+      nextBa = (ba === "東") ? "南" : "西";
+      nextKyokuNum = 1;
+    }
+  }
+
+  currentTableData.kyoku = nextBa + nextKyokuNum + "局";
+  currentTableData.honba = nextHonba;
+  currentTableData.riichiStatus = ""; // リーチ状況はクリア
+
+  // 3. 0秒で即座に画面UIを更新（先読み反映）
+  if (typeof setupMahjongTableUI === "function") {
+    setupMahjongTableUI(currentTableData, myUserId);
+  }
+  // ▲▲▲ 先読み計算ここまで ▲▲▲
+
+  // 4. 暗転モーダルで「流局処理中...」を表示
   showResultModal(`<div style="font-size:20px; font-weight:bold; color:#333; padding:10px 0;">【流局処理中...】</div>`);
 
+  // 5. 裏側（GAS）へ通信
   try {
     const payload = {
       action: "ryukyoku",
@@ -1619,7 +1683,6 @@ async function submitRyukyoku() {
       currentData: JSON.stringify(currentTableData)
     };
 
-    // GASへPOST送信
     const res = await fetch(CONFIG_GAS_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
@@ -1629,13 +1692,15 @@ async function submitRyukyoku() {
     const result = await res.json();
 
     if (result.success) {
-      // 3. 更新完了後、「流局完了」に表示を切り替え
+      // 6. GAS側での更新完了後、「流局完了」に文字を変更
       updateResultModalContent(`<div style="font-size:24px; font-weight:bold; color:#28a745; padding:15px 0;">流局完了</div>`);
       
-      // 4. 最新の卓データで画面UIを上書き更新
-      setupMahjongTableUI(result.tableData, myUserId);
+      // GASから返ってきた確定データで同期上書き
+      if (result.tableData) {
+        setupMahjongTableUI(result.tableData, myUserId);
+      }
 
-      // 5. 1.2秒後にダイアログを自動で閉じる
+      // 1.2秒後にダイアログを自動で閉じる
       setTimeout(() => {
         hideResultModal();
       }, 1200);
