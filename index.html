@@ -181,22 +181,19 @@
   </div>
   
   <!-- ここに流局用のポップアップ画面が入ります  -->
+<!-- 流局用のポップアップ画面 -->
   <div id="ryukyokuPopup" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:300; justify-content:center; align-items:center;">
     <div style="background:#fff; padding:20px; border-radius:12px; width:90%; max-width:320px; text-align:center; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
       <h3 style="margin-top:0; color:#333; font-size:18px;">流局（テンパイ申告）</h3>
       <p style="font-size:13px; color:#666; margin-bottom:15px;">テンパイしている人を選択してください</p>
       
-      <!-- JSでここに4人分のボタンを作ります -->
-      <div id="ryukyokuMembers" style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px;"></div>
+      <!-- JSで麻雀卓配置（クロス配置）の4人ボタンを生成します -->
+      <div id="ryukyokuMembers" style="position:relative; width:260px; height:190px; margin:0 auto 15px auto;"></div>
       
-      <!-- 計算結果のプレビュー -->
-      <div id="ryukyokuPreview" style="font-size:14px; font-weight:bold; color:#d32f2f; margin-bottom:15px; background:#ffebee; padding:10px; border-radius:5px;">
-        全員ノーテン（点数移動なし）
-      </div>
-      
+      <!-- 左右入れ替え：左（キャンセル） / 右（確定） -->
       <div style="display:flex; justify-content:space-between; gap:10px;">
-        <button onclick="submitRyukyoku()" style="flex:1; background:#28a745; color:#fff; padding:12px; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">これで確定する</button>
-        <button onclick="document.getElementById('ryukyokuPopup').style.display='none'" style="flex:1; background:#6c757d; color:#fff; padding:12px; border:none; border-radius:5px; cursor:pointer;">キャンセル</button>
+        <button onclick="document.getElementById('ryukyokuPopup').style.display='none'" style="flex:1; background:#6c757d; color:#fff; padding:12px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:14px;">キャンセル</button>
+        <button onclick="submitRyukyoku()" style="flex:1; background:#28a745; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px;">これで確定する</button>
       </div>
     </div>
   </div>
@@ -1498,58 +1495,96 @@ function hideResultModal() {
   if (view) view.style.display = "none";
 }
   
-// 流局用ポップアップ
+// 流局用ポップアップ（卓配置・リーチ固定・不聴/聴牌表記対応）
 function openRyukyokuPopup() {
   if (!currentTableData) return;
   
-  // 初期状態は全員ノーテンとする
   tenpaiStatus = { "東": false, "南": false, "西": false, "北": false };
   
   const membersDiv = document.getElementById("ryukyokuMembers");
   membersDiv.innerHTML = "";
+
+  const currentKyoku = currentTableData.kyoku || currentTableData.round || "東1局";
   
   const players = [
-    { wind: "東", name: currentTableData.eastName },
-    { wind: "南", name: currentTableData.southName },
-    { wind: "西", name: currentTableData.westName },
-    { wind: "北", name: currentTableData.northName }
+    { id: currentTableData.eastId, name: currentTableData.eastName, wind: getCurrentDisplayWind("東", currentKyoku), baseWind: "東" },
+    { id: currentTableData.southId, name: currentTableData.southName, wind: getCurrentDisplayWind("南", currentKyoku), baseWind: "南" },
+    { id: currentTableData.westId, name: currentTableData.westName, wind: getCurrentDisplayWind("西", currentKyoku), baseWind: "西" },
+    { id: currentTableData.northId, name: currentTableData.northName, wind: getCurrentDisplayWind("北", currentKyoku), baseWind: "北" }
   ];
-  
-  // 4人分のトグル（オンオフ）ボタンを作成
+
+  // 現在リーチ中の風リストを取得
+  let activeRiichiList = [];
+  if (currentTableData.riichiStatus) {
+    activeRiichiList = currentTableData.riichiStatus.split(",").filter(w => w !== "");
+  }
+
+  // リーチしている人は最初からテンパイ（聴牌）状態に固定
   players.forEach(p => {
+    if (activeRiichiList.includes(p.baseWind)) {
+      tenpaiStatus[p.wind] = true;
+    }
+  });
+
+  // 操作中の自分の座席から相対位置（手前：自分、右：下家、奥：対面、左：上家）を特定
+  let myIndex = players.findIndex(p => p.id === myUserId);
+  if (myIndex === -1) myIndex = 0;
+
+  const uiMap = [
+    { posStyle: "bottom: 0; left: 50%; transform: translateX(-50%);", data: players[(myIndex) % 4] },     // 手前（自分）
+    { posStyle: "top: 50%; right: 0; transform: translateY(-50%);",  data: players[(myIndex + 1) % 4] }, // 右（下家）
+    { posStyle: "top: 0; left: 50%; transform: translateX(-50%);",   data: players[(myIndex + 2) % 4] }, // 奥（対面）
+    { posStyle: "top: 50%; left: 0; transform: translateY(-50%);",   data: players[(myIndex + 3) % 4] }  // 左（上家）
+  ];
+
+  uiMap.forEach(p => {
     let btn = document.createElement("button");
-    btn.textContent = `${p.wind}家：${p.name} (ノーテン)`;
-    btn.style.padding = "12px";
-    btn.style.borderRadius = "8px";
-    btn.style.border = "2px solid #ccc";
-    btn.style.background = "#f8f9fa";
-    btn.style.color = "#666";
-    btn.style.fontWeight = "bold";
-    btn.style.cursor = "pointer";
+    btn.style.cssText = `position: absolute; ${p.posStyle} width: 85px; height: 52px; padding: 4px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box; transition: all 0.2s;`;
     
-    // ボタンを押した時の色の変化
-    btn.onclick = () => {
-      tenpaiStatus[p.wind] = !tenpaiStatus[p.wind]; // 状態を裏返す
-      if (tenpaiStatus[p.wind]) {
-        btn.textContent = `${p.wind}家：${p.name} 【テンパイ】`;
+    const isRiichiUser = activeRiichiList.includes(p.data.baseWind);
+
+    // ボタンの見た目と表記を切り替える関数
+    const updateBtnAppearance = () => {
+      const isTenpai = tenpaiStatus[p.data.wind];
+      
+      if (isRiichiUser) {
+        // リーチ中の場合：固定表示（変更不可）
+        btn.style.background = "#ffebee";
+        btn.style.border = "2px solid #ff1744";
+        btn.style.color = "#c62828";
+        btn.style.cursor = "not-allowed";
+        btn.innerHTML = `<span style="font-size:12px; font-weight:bold;">${p.data.name}</span><span style="font-size:10px; font-weight:bold; color:#d32f2f; margin-top:2px;">(聴牌・立直)</span>`;
+      } else if (isTenpai) {
+        // テンパイの場合
         btn.style.background = "#e3f2fd";
-        btn.style.borderColor = "#2196f3";
+        btn.style.border = "2px solid #2196f3";
         btn.style.color = "#1565c0";
+        btn.innerHTML = `<span style="font-size:12px; font-weight:bold;">${p.data.name}</span><span style="font-size:10px; font-weight:bold; color:#1565c0; margin-top:2px;">(聴牌)</span>`;
       } else {
-        btn.textContent = `${p.wind}家：${p.name} (ノーテン)`;
+        // ノーテン（不聴）の場合
         btn.style.background = "#f8f9fa";
-        btn.style.borderColor = "#ccc";
+        btn.style.border = "1px solid #ccc";
         btn.style.color = "#666";
+        btn.innerHTML = `<span style="font-size:12px; font-weight:bold;">${p.data.name}</span><span style="font-size:10px; color:#888; margin-top:2px;">(不聴)</span>`;
       }
-      updateRyukyokuPreview(); // プレビューを再計算
     };
+
+    updateBtnAppearance();
+
+    // リーチ中のプレイヤー以外はタップで切り替え可能
+    if (!isRiichiUser) {
+      btn.onclick = () => {
+        tenpaiStatus[p.data.wind] = !tenpaiStatus[p.data.wind];
+        updateBtnAppearance();
+      };
+    }
+
     membersDiv.appendChild(btn);
   });
   
-  updateRyukyokuPreview();
   document.getElementById("ryukyokuPopup").style.display = "flex";
 }
-
+  
 // プレビュー（点数移動）の計算と表示
 function updateRyukyokuPreview() {
   const tenpaiCount = Object.values(tenpaiStatus).filter(v => v).length;
