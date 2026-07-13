@@ -1345,24 +1345,25 @@ document.getElementById('btnRiichi').addEventListener('click', function() {
   isRiichiProcessing = true; 
   document.getElementById('btnRiichi').style.opacity = "0.6";
 
-  // =========================================================
-  // 🌟【修正箇所】裏側（GAS）へ送るデータは、画面の点数をいじる「前」に作って退避させておく
-  // =========================================================
   const requestData = {
     action: targetAction,
     riichiWind: currentTableData.mySeat,
     currentData: JSON.stringify(currentTableData)
   };
 
-  // 1. 手元のスマホ画面の点数と供託を計算
+  // 1. 手元のスマホ画面の「点数」と「供託」を即座に計算（先読み）
   let scoreChange = isCanceling ? 1000 : -1000;
+  let kyotakuChange = isCanceling ? -1 : 1;
 
-if (currentTableData.mySeat === "東") currentTableData.eastScore = Number(currentTableData.eastScore) + scoreChange;
+  if (currentTableData.mySeat === "東") currentTableData.eastScore = Number(currentTableData.eastScore) + scoreChange;
   else if (currentTableData.mySeat === "南") currentTableData.southScore = Number(currentTableData.southScore) + scoreChange;
   else if (currentTableData.mySeat === "西") currentTableData.westScore = Number(currentTableData.westScore) + scoreChange;
   else if (currentTableData.mySeat === "北") currentTableData.northScore = Number(currentTableData.northScore) + scoreChange;
 
-  // ▼▼▼ ここから追加：画面側でもリーチ者リストを先読み更新する ▼▼▼
+  // ★ 卓中央の供託本数を増減（0未満にはならないように制御）
+  currentTableData.kyotaku = Math.max(0, Number(currentTableData.kyotaku || 0) + kyotakuChange);
+
+  // リーチ者リストの先読み更新
   let riichiSavedList = [];
   if (currentTableData.riichiStatus) {
     riichiSavedList = currentTableData.riichiStatus.split(",").filter(w => w !== "");
@@ -1373,14 +1374,13 @@ if (currentTableData.mySeat === "東") currentTableData.eastScore = Number(curre
     if (!riichiSavedList.includes(currentTableData.mySeat)) riichiSavedList.push(currentTableData.mySeat);
   }
   currentTableData.riichiStatus = riichiSavedList.join(",");
-  // ▲▲▲ 追加ここまで ▲▲▲
 
-  // 2. 画面を即座にアップデート（先読み）
+  // 2. 画面UIを即座にアップデート
   if (typeof setupMahjongTableUI === "function") {
     setupMahjongTableUI(currentTableData, myUserId);
   }
 
-  // 3. ボタンの見た目も即座に切り替え
+  // 3. ボタンの表示切替
   if (isCanceling) {
     isCurrentlyRiichi = false;
     riichiKyokuId = "";
@@ -1391,9 +1391,7 @@ if (currentTableData.mySeat === "東") currentTableData.eastScore = Number(curre
     updateRiichiButtonUI(true);
   }
 
-  // =========================================================
-  // 退避させておいた正しいデータを使って、裏側へ通信する
-  // =========================================================
+  // 4. 裏側（GAS）へ通信
   fetch(CONFIG_GAS_URL, { 
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
@@ -1638,23 +1636,19 @@ async function handleReset(shouldRecord) {
 
   // 「はい」が押された場合の将来用の処理
   if (shouldRecord) {
-    alert("「はい」が選択されました。\n※将来的にはここで対局結果を記録する処理が入りますが、現在はそのままリセットしてロビーに戻ります。");
     // TODO: ここに対局結果の保存ロジックを追加する
   }
 
-  // ボタンを連打できないようにする
+  // ボタンの二重送信防止（テキスト変更は行いません）
   const btn = document.getElementById("btnResetTable");
-  const originalText = btn.textContent;
-  btn.textContent = "⏳ リセット中...";
-  btn.disabled = true;
+  if (btn) btn.disabled = true;
 
   try {
     // ① Firebaseの該当卓データを「強制削除」して監視を解除する
     if (currentTableRef) {
-      currentTableRef.off(); // リアルタイム受信を停止
+      currentTableRef.off();
     }
     await db.ref("tables/" + currentTableData.tableId).remove();
-    console.log("🔥 Firebaseのデータを削除しました。");
 
     // ② GASへ送信し、スプレッドシートの卓を無効化する
     const payload = {
@@ -1681,19 +1675,17 @@ async function handleReset(shouldRecord) {
       
       // メンバー選択画面の再ロード
       loadHostInterface();
-      
     } else {
-      // リセット失敗時もalertは表示しません
       console.error("リセットに失敗しました");
-      btn.textContent = originalText;
-      btn.disabled = false;
     }
   } catch (error) {
     console.error("通信エラー:", error.message);
-    btn.textContent = originalText;
-    btn.disabled = false;
+  } finally {
+    // 成功・失敗にかかわらず、ボタンの押せない状態を確実に解除する
+    if (btn) btn.disabled = false;
   }
 }
+
 window.onload = () => {
   loadDictionary();
 };
