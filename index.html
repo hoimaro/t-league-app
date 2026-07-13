@@ -193,7 +193,7 @@
       <!-- 左右入れ替え：左（キャンセル） / 右（確定） -->
       <div style="display:flex; justify-content:space-between; gap:10px;">
         <button onclick="document.getElementById('ryukyokuPopup').style.display='none'" style="flex:1; background:#6c757d; color:#fff; padding:12px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:14px;">キャンセル</button>
-        <button onclick="submitRyukyoku()" style="flex:1; background:#28a745; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px;">これで確定する</button>
+        <button onclick="submitRyukyoku()" style="flex:1; background:#28a745; color:#fff; padding:12px; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px;">確定</button>
       </div>
     </div>
   </div>
@@ -1603,53 +1603,50 @@ function updateRyukyokuPreview() {
   document.getElementById("ryukyokuPreview").textContent = text;
 }
 
-// 「これで確定する」ボタンを押したときの処理（GAS通信版）
+// 「確定」ボタンを押したときの処理（アラート非表示・即時レスポンス版）
 async function submitRyukyoku() {
-  const tenpaiCount = Object.values(tenpaiStatus).filter(v => v).length;
-  
-  if (!confirm("この内容で流局処理を確定しますか？\n（親のテンパイ有無により、本場や親が自動で移行します）")) return;
-  
-  // ポップアップを閉じて、送信中であることをユーザーに知らせる
+  // 1. 流局入力ポップアップを閉じる
   document.getElementById("ryukyokuPopup").style.display = "none";
   
-  // 画面上にローディング表示を出す（ボタンを一時的に無効化するなど）
-  const ryukyokuBtn = document.getElementById("btnRyukyoku");
-  const originalBtnText = ryukyokuBtn.textContent;
-  ryukyokuBtn.textContent = "⏳ GASへ送信中...";
-  ryukyokuBtn.disabled = true;
+  // 2. アガリ時と同じ暗転モーダルで処理中を表示（ブラウザ標準のアラートは表示しません）
+  showResultModal(`<div style="font-size:20px; font-weight:bold; color:#333; padding:10px 0;">【流局処理中...】</div>`);
 
   try {
-    // GASへ送るデータのパッケージを作成
     const payload = {
       action: "ryukyoku",
       userId: myUserId,
       tenpaiData: JSON.stringify(tenpaiStatus),
-      currentData: JSON.stringify(currentTableData) // ⬅️ ★現在の卓データを丸ごとGASに送る
+      currentData: JSON.stringify(currentTableData)
     };
 
     // GASへPOST送信
     const res = await fetch(CONFIG_GAS_URL, {
       method: "POST",
-      headers: { "Content-Type": "text/plain" },       // ⬅️ ★ここが変わりました
-      body: JSON.stringify(payload)                    // ⬅️ ★ここが変わりました
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify(payload)
     });
 
     const result = await res.json();
 
     if (result.success) {
-      // GAS側での点数計算とスプレッドシート書き込みが成功したら、
-      // 返ってきた最新の卓データを使って、麻雀卓の表示を再描画（更新）する！
-      alert("流局処理が完了しました！");
+      // 3. 更新完了後、「流局完了」に表示を切り替え
+      updateResultModalContent(`<div style="font-size:24px; font-weight:bold; color:#28a745; padding:15px 0;">流局完了</div>`);
+      
+      // 4. 最新の卓データで画面UIを上書き更新
       setupMahjongTableUI(result.tableData, myUserId);
+
+      // 5. 1.2秒後にダイアログを自動で閉じる
+      setTimeout(() => {
+        hideResultModal();
+      }, 1200);
+
     } else {
-      alert("エラーが発生しました: " + result.message);
+      updateResultModalContent(`<div style="font-size:18px; font-weight:bold; color:#dc3545; padding:10px 0;">エラーが発生しました</div>`);
+      setTimeout(() => { hideResultModal(); }, 2000);
     }
   } catch (error) {
-    alert("通信エラーが発生しました: " + error.message);
-  } finally {
-    // ボタンの表示を元に戻す
-    ryukyokuBtn.textContent = originalBtnText;
-    ryukyokuBtn.disabled = false;
+    updateResultModalContent(`<div style="font-size:18px; font-weight:bold; color:#dc3545; padding:10px 0;">通信エラーが発生しました</div>`);
+    setTimeout(() => { hideResultModal(); }, 2000);
   }
 }
   
