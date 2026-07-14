@@ -896,7 +896,18 @@ let currentSelectedLoser = "";
 let currentConfirmParams = {};
 
 // 役を削除する関数（タップ時に実行）
+// 役を削除する関数（タップ時に実行）
 function removeYaku(index) {
+  // ▼▼▼ 【追加】リーチボタンで宣言中の場合、「リーチ」役の削除をブロック ▼▼▼
+  let activeRiichiList = (currentTableData && currentTableData.riichiStatus) ? currentTableData.riichiStatus.split(",").filter(w => w !== "") : [];
+  let isMySeatRiichi = !!(currentTableData && currentTableData.mySeat && activeRiichiList.includes(currentTableData.mySeat));
+
+  if (isMySeatRiichi && globalYakuArray[index] === "リーチ") {
+    alert("リーチボタンで宣言中のため「リーチ」は削除できません。");
+    return;
+  }
+  // ▲▲▲ 追加ここまで ▲▲▲
+
   if (globalYakuArray.length <= 1) {
     alert("役は最低1つ必要です。");
     return;
@@ -1070,6 +1081,9 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
   // ▲▲▲ 動的判定ロジック追加ここまで ▲▲▲
 
   // ① 上がり役の表示
+  let activeRiichiList = (currentTableData && currentTableData.riichiStatus) ? currentTableData.riichiStatus.split(",").filter(w => w !== "") : [];
+  let isMySeatRiichi = !!(currentTableData && currentTableData.mySeat && activeRiichiList.includes(currentTableData.mySeat));
+
   let yakuBadges = yakuArray.map((yaku, idx) => {
     let han = YAKU_HAN[yaku] || 1;
     let bg = "#e3f2fd", border = "#90caf9", color = "#1565c0";
@@ -1087,7 +1101,14 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
       bg = "#fffde7"; border = "#fff59d"; color = "#f57f17";
     }
 
-    return `<span onclick="removeYaku(${idx})" style="display:inline-block; padding:4px 10px; background:${bg}; border:1px solid ${border}; border-radius:14px; font-size:14px; font-weight:bold; color:${color}; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.1);" title="タップで削除">× ${yaku}</span>`;
+    // 自分がリーチボタンを押していて、対象の役が「リーチ」の場合は削除不可（×を付けない）
+    let isLockedRiichi = (isMySeatRiichi && yaku === "リーチ");
+
+    if (isLockedRiichi) {
+      return `<span style="display:inline-block; padding:4px 10px; background:${bg}; border:1px solid ${border}; border-radius:14px; font-size:14px; font-weight:bold; color:${color}; box-shadow:0 1px 2px rgba(0,0,0,0.1);">${yaku}</span>`;
+    } else {
+      return `<span onclick="removeYaku(${idx})" style="display:inline-block; padding:4px 10px; background:${bg}; border:1px solid ${border}; border-radius:14px; font-size:14px; font-weight:bold; color:${color}; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.1);" title="タップで削除">× ${yaku}</span>`;
+    }
   }).join("");
 
   infoText.innerHTML = `<div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; align-items:center;">${yakuBadges}</div>`;
