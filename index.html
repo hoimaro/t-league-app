@@ -1618,6 +1618,9 @@ async function submitRyukyoku() {
   // 1. 流局入力ポップアップを閉じる
   document.getElementById("ryukyokuPopup").style.display = "none";
   
+  // ★★★ 【重要】先読み計算を行う「前」の元データを退避しておく（二重計算防止） ★★★
+  const originalTableDataJson = JSON.stringify(currentTableData);
+  
   // 2. ▼▼▼ 先読み計算：手元データで即座に点数移動と局進行を適用 ▼▼▼
   const winds = ["東", "南", "西", "北"];
   const currentKyokuStr = (currentTableData && currentTableData.kyoku) || "東1局";
@@ -1629,7 +1632,7 @@ async function submitRyukyoku() {
     kyokuNum = Number(match[2]);
   }
   
-  // 現在の親の風を判定 (1局:東, 2局:南, 3局:西, 4局:北)
+  // 現在の親の風を判定
   let currentDealerWind = winds[kyokuNum - 1] || "東";
 
   // テンパイ者・ノーテン者の集計
@@ -1675,7 +1678,7 @@ async function submitRyukyoku() {
   currentTableData.honba = nextHonba;
   currentTableData.riichiStatus = ""; // リーチ状況はクリア
 
-  // 3. 0秒で即座に画面UIを更新（先読み反映）
+  // 3. 0秒で即座に画面UIを更新（手元だけ先読み反映）
   if (typeof setupMahjongTableUI === "function") {
     setupMahjongTableUI(currentTableData, myUserId);
   }
@@ -1684,13 +1687,13 @@ async function submitRyukyoku() {
   // 4. 暗転モーダルで「流局処理中...」を表示
   showResultModal(`<div style="font-size:20px; font-weight:bold; color:#333; padding:10px 0;">【流局処理中...】</div>`);
 
-  // 5. 裏側（GAS）へ通信
+  // 5. 裏側（GAS）へ通信（※計算前の originalTableDataJson を送信）
   try {
     const payload = {
       action: "ryukyoku",
       userId: myUserId,
       tenpaiData: JSON.stringify(tenpaiStatus),
-      currentData: JSON.stringify(currentTableData)
+      currentData: originalTableDataJson // ★計算前のデータを渡すことでGAS側の二重加算を防止
     };
 
     const res = await fetch(CONFIG_GAS_URL, {
@@ -1702,15 +1705,13 @@ async function submitRyukyoku() {
     const result = await res.json();
 
     if (result.success) {
-      // 6. GAS側での更新完了後、「流局完了」に文字を変更
       updateResultModalContent(`<div style="font-size:24px; font-weight:bold; color:#28a745; padding:15px 0;">流局完了</div>`);
       
-      // GASから返ってきた確定データで同期上書き
+      // GASからの正確定着データで画面を上書き同期
       if (result.tableData) {
         setupMahjongTableUI(result.tableData, myUserId);
       }
 
-      // 1.2秒後にダイアログを自動で閉じる
       setTimeout(() => {
         hideResultModal();
       }, 1200);
