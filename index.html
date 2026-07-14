@@ -303,6 +303,8 @@ function startRealtimeSync(tableId) {
 // アプリ起動時に最初に呼び出す関数（LIFF連動版）
 const CONFIG_LIFF_ID = "2010600263-fW0rPubj"; 
 let myUserId = new URLSearchParams(window.location.search).get('id') || new URLSearchParams(window.location.search).get('userId');
+// URLから test=true が指定されているか判定
+const isTestMode = new URLSearchParams(window.location.search).get('test') === 'true';
 
 async function initApp() {
   // 1. URLパラメータ（?id=DUMMY_1 など）からID取得を試みる
@@ -375,6 +377,10 @@ let tenpaiStatus = {};
 // メイン画面のUIをセットアップする関数
 function setupMahjongTableUI(tableData, myUserId) {
   currentTableData = tableData;
+  if (tableData.gameEnded === true) {
+    showFinalResultsModal(tableData.finalStandings);
+    return;
+  }
   document.getElementById("lobbyView").style.display = "none";
   document.getElementById("mainGameView").style.display = "block";
 
@@ -525,7 +531,7 @@ function updateBox(elementId, name, score) {
 async function loadHostInterface() {
   document.getElementById("createTableArea").style.display = "block";
   try {
-    const res = await fetch(`${CONFIG_GAS_URL}?action=getMembers`);
+    const res = await fetch(`${CONFIG_GAS_URL}?action=getMembers&test=${isTestMode}`);
     const data = await res.json();
     if (data.result === "success") {
       const selects = [
@@ -1730,61 +1736,118 @@ function openResetPopup() {
 
 // ユーザーの選択に基づくリセット処理
 async function handleReset(shouldRecord) {
-  // ポップアップを閉じる
   document.getElementById("resetConfirmPopup").style.display = "none";
   
   if (!currentTableData) return;
 
-  // 「はい」が押された場合の将来用の処理
-  if (shouldRecord) {
-    // TODO: ここに対局結果の保存ロジックを追加する
-  }
-
-  // ボタンの二重送信防止（テキスト変更は行いません）
   const btn = document.getElementById("btnResetTable");
   if (btn) btn.disabled = true;
 
   try {
-    // ① Firebaseの該当卓データを「強制削除」して監視を解除する
-    if (currentTableRef) {
-      currentTableRef.off();
-    }
-    await db.ref("tables/" + currentTableData.tableId).remove();
+    if (shouldRecord) {
+      // 1. 同期を解除
+      if (currentTableRef) currentTableRef.off();
 
-    // ② GASへ送信し、スプレッドシートの卓を無効化する
-    const payload = {
-      action: "resetTable",
-      tableId: currentTableData.tableId
-    };
+      // 2. 得点を記録して終了する（GASでオカウマ計算をしてスプレッドシートに追記）
+      const payload = {
+        action: "resetTable",
+        tableId: currentTableData.tableId,
+        currentData: JSON.stringify(currentTableData),
+        recordResults: true
+      };
 
-    const res = await fetch(CONFIG_GAS_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify(payload)
-    });
+      const res = await fetch(CONFIG_GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify(payload)
+      });
 
-    const result = await res.json();
+      const result = await res.json();
+      if (result.result === "success") {
+        // 全員分のウマオカ成績をモーダルで表示
+        showFinalResultsModal(result.finalStandings);
+      } else {
+        alert("終了処理中にエラーが発生しました。");
+        if (btn) btn.disabled = false;
+      }
 
-    if (result.result === "success") {
-      // ③ 画面をメンバー選択（ロビー）に戻す
-      currentTableData = null;
-      currentTableRef = null;
-      
-      document.getElementById("mainGameView").style.display = "none";
-      document.getElementById("lobbyView").style.display = "block";
-      document.getElementById("lobbyStatus").textContent = "卓がリセットされました。メンバーを選択してください。";
-      
-      // メンバー選択画面の再ロード
-      loadHostInterface();
     } else {
-      console.error("リセットに失敗しました");
+      // 強制終了（得点を記録しないリセット）
+      if (currentTableRef) currentTableRef.off();
+      await db.ref("tables/" + currentTableData.tableId).remove();
+
+      const payload = {
+        action: "resetTable",
+        tableId: currentTableData.tableId,
+        recordResults: false
+      };
+
+      const res = await fetch(CONFIG_GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await res.json();
+      if (result.result === "success") {
+        currentTableData = null;
+        currentTableRef = null;
+        
+        document.getElementById("mainGameView").style.display = "none";
+        document.getElementById("lobbyView").style.display = "block";
+        document.getElementById("lobbyStatus").textContent = "卓が強制終了されました。";
+        loadHostInterface();
+      }
     }
   } catch (error) {
     console.error("通信エラー:", error.message);
   } finally {
-    // 成功・失敗にかかわらず、ボタンの押せない状態を確実に解除する
     if (btn) btn.disabled = false;
   }
+}
+
+// 半荘最終成績のリザルトモーダル表示
+function showFinalResultsModal(standings) {
+  if (currentTableRef) {
+    currentTableRef.off(); // リアルタイム監視を解除
+  }
+
+  let html = `<h3 style="margin-top:0; color:#d32f2f; font-size:22px; font-weight:bold; letter-spacing:1px;">🏆 半荘終了 🏆</h3>`;
+  html += `<div style="margin:18px 0; text-align:left; background:#f8f9fa; border-radius:8px; padding:10px; border:1px solid #e0e0e0;">`;
+  
+  standings.forEach(p => {
+    let rankColor = "#333";
+    let medal = "";
+    if (p.rank === 1) { rankColor = "#d4af37"; medal = "🥇 "; }
+    else if (p.rank === 2) { rankColor = "#c0c0c0"; medal = "🥈 "; }
+    else if (p.rank === 3) { rankColor = "#cd7f32"; medal = "🥉 "; }
+    
+    // pt表示の整形（プラス値には+を付ける）
+    let formattedScore = p.finalScore >= 0 ? `+${p.finalScore.toFixed(1)}` : p.finalScore.toFixed(1);
+
+    html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #eee; font-size:15px; font-weight:bold; color:${rankColor};">`;
+    html += `  <span>${medal}${p.rank}位: ${p.name} (${p.wind})</span>`;
+    html += `  <span>${Number(p.score).toLocaleString()}点 (${formattedScore}pt)</span>`;
+    html += `</div>`;
+  });
+  html += `</div>`;
+  html += `<button onclick="closeGameResultsAndGoToLobby()" style="width:100%; padding:12px; background:linear-gradient(145deg, #007bff, #0056b3); color:#fff; border:none; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer; box-shadow:0 3px 6px rgba(0,0,0,0.16);">ロビーに戻る</button>`;
+
+  showResultModal(html);
+}
+
+// 終了結果ダイアログを閉じてメンバー選択ロビーに完全移行
+function closeGameResultsAndGoToLobby() {
+  hideResultModal();
+
+  currentTableData = null;
+  currentTableRef = null;
+  
+  document.getElementById("mainGameView").style.display = "none";
+  document.getElementById("lobbyView").style.display = "block";
+  document.getElementById("lobbyStatus").textContent = "メンバーを選択してください。";
+  
+  loadHostInterface();
 }
 
 window.onload = () => {
