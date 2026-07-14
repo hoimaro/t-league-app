@@ -1007,19 +1007,28 @@ function validateConfirmButton() {
   }
 }
 
-// 認識結果の確認ポップアップ表示関数
-function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, isTsumo, isOya, yakuArray, isKuiseagariApplied) {
+// 認識結果の確認ポップアップ表示関数（親/子動的判定対応版）
+function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, isTsumo, isOyaParam, yakuArray, isKuiseagariApplied) {
   const popup = document.getElementById('confirmPopup');
   const infoText = document.getElementById('confirmPopupInfo');
   const buttonsArea = document.getElementById('fuButtonsArea');
   const loserArea = document.getElementById('loserArea');
-  
-  currentConfirmParams = { totalHan, isOya, isTsumo, yakuArray };
+  const winSelect = document.getElementById('selectWinner');
+
   currentSelectedLoser = ""; 
   currentSelectedFu = 30;
   if (hasChiitoitsu) currentSelectedFu = 25;
   if (hasPinfu && isTsumo) currentSelectedFu = 20;
 
+  // ▼▼▼ 【追加】現在の局から「親の風」を判定するロジック ▼▼▼
+  const currentKyoku = (currentTableData && currentTableData.kyoku) || "東1局";
+  const match = currentKyoku.match(/(東|南|西|北)(\d+)局/);
+  let kyokuNum = 1;
+  if (match) kyokuNum = Number(match[2]);
+  const winds = ["東", "南", "西", "北"];
+  const currentDealerWind = winds[kyokuNum - 1] || "東";
+
+  // アガリ者プルダウンの初期化
   if (typeof currentTableData !== 'undefined' && currentTableData !== null) {
     const players = [
       { wind: "東", name: currentTableData.eastName || "東家" },
@@ -1031,12 +1040,34 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
     players.forEach(p => {
       optionsHtml += `<option value="${p.wind}">${p.name}</option>`;
     });
-    const winSelect = document.getElementById('selectWinner');
     if (winSelect) {
       winSelect.innerHTML = optionsHtml;
       if (currentTableData.mySeat) winSelect.value = currentTableData.mySeat;
     }
   }
+
+  // ★ 選択中のアガリ者が親かどうか判定してパラメータを更新する内部関数
+  const updateOyaState = () => {
+    const selectedWinnerWind = winSelect ? winSelect.value : "東";
+    const isOya = (selectedWinnerWind === currentDealerWind);
+    currentConfirmParams = { totalHan, isOya, isTsumo, yakuArray };
+  };
+
+  // 初期判定を実行
+  updateOyaState();
+
+  // アガリ者が変更されたら親/子判定を再更新するイベントを設定
+  if (winSelect) {
+    winSelect.onchange = () => {
+      updateOyaState();
+      if (!isTsumo && currentSelectedLoser === winSelect.value) {
+        currentSelectedLoser = "";
+      }
+      renderLoserSection();
+      validateConfirmButton();
+    };
+  }
+  // ▲▲▲ 動的判定ロジック追加ここまで ▲▲▲
 
   // ① 上がり役の表示
   let yakuBadges = yakuArray.map((yaku, idx) => {
