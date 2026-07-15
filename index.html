@@ -896,7 +896,6 @@ let currentSelectedLoser = "";
 let currentConfirmParams = {};
 
 // 役を削除する関数（タップ時に実行）
-// 役を削除する関数（タップ時に実行）
 function removeYaku(index) {
   // ▼▼▼ 【追加】リーチボタンで宣言中の場合、「リーチ」役の削除をブロック ▼▼▼
   let activeRiichiList = (currentTableData && currentTableData.riichiStatus) ? currentTableData.riichiStatus.split(",").filter(w => w !== "") : [];
@@ -1028,8 +1027,14 @@ function showConfirmPopup(totalHan, hasPinfu, hasChiitoitsu, hasToitoiSanankou, 
 
   currentSelectedLoser = ""; 
   currentSelectedFu = 30;
-  if (hasChiitoitsu) currentSelectedFu = 25;
-  if (hasPinfu && isTsumo) currentSelectedFu = 20;
+  if (hasChiitoitsu) {
+    currentSelectedFu = 25;
+  } else if (hasPinfu && isTsumo) {
+    currentSelectedFu = 20;
+  } else if (!isTsumo && !globalIsKuiseagari && !hasPinfu) {
+    // ロン(!isTsumo) ＆ 面前(!globalIsKuiseagari) ＆ 平和ではない(!hasPinfu)
+    currentSelectedFu = 40;
+  }
 
   // ▼▼▼ 【追加】現在の局から「親の風」を判定するロジック ▼▼▼
   const currentKyoku = (currentTableData && currentTableData.kyoku) || "東1局";
@@ -1666,11 +1671,12 @@ function updateRyukyokuPreview() {
 }
 
 // 「確定」ボタンを押したときの処理（即時画面更新・先読み対応版）
+// 「確定」ボタンを押したときの処理（二重計算防止・先読み対応・親座席バグ修正版）
 async function submitRyukyoku() {
   // 1. 流局入力ポップアップを閉じる
   document.getElementById("ryukyokuPopup").style.display = "none";
   
-  // ★★★ 【重要】先読み計算を行う「前」の元データを退避しておく（二重計算防止） ★★★
+  // 先読み計算を行う「前」の元データを退避しておく（二重計算防止）
   const originalTableDataJson = JSON.stringify(currentTableData);
   
   // 2. ▼▼▼ 先読み計算：手元データで即座に点数移動と局進行を適用 ▼▼▼
@@ -1683,9 +1689,6 @@ async function submitRyukyoku() {
     ba = match[1];
     kyokuNum = Number(match[2]);
   }
-  
-  // 現在の親の風を判定
-  let currentDealerWind = winds[kyokuNum - 1] || "東";
 
   // テンパイ者・ノーテン者の集計
   let tenpaiWinds = [];
@@ -1695,23 +1698,34 @@ async function submitRyukyoku() {
     else notenWinds.push(w);
   });
 
-  // 点数移動の計算（ノーテン罰符：場に合計3,000点）
-  let scoreDiff = { "東": 0, "南": 0, "西": 0, "北": 0 };
+  // ★★★ 【修正】現在の風から、固定の各座席（東家〜北家）へのマッピング変換 ★★★
+  const shift = kyokuNum - 1;
+  const windsOrder = ["東", "南", "西", "北"];
+  let scoreDiffBySeat = { "東家": 0, "南家": 0, "西家": 0, "北家": 0 };
+
   if (tenpaiWinds.length > 0 && tenpaiWinds.length < 4) {
     let receivePoint = 3000 / tenpaiWinds.length;
     let payPoint = 3000 / notenWinds.length;
-    tenpaiWinds.forEach(w => scoreDiff[w] = receivePoint);
-    notenWinds.forEach(w => scoreDiff[w] = -payPoint);
+
+    windsOrder.forEach((wind, windIndex) => {
+      // 現在の風（wind）が、本来どの座席（東家〜北家）なのかをシフト量から逆引き計算
+      const seatIndex = (windIndex + shift) % 4;
+      const seatName = ["東家", "南家", "西家", "北家"][seatIndex];
+      
+      const isTenpai = tenpaiStatus[wind];
+      scoreDiffBySeat[seatName] = isTenpai ? receivePoint : -payPoint;
+    });
   }
 
-  // 得点の仮更新
-  currentTableData.eastScore = Number(currentTableData.eastScore || 25000) + scoreDiff["東"];
-  currentTableData.southScore = Number(currentTableData.southScore || 25000) + scoreDiff["南"];
-  currentTableData.westScore = Number(currentTableData.westScore || 25000) + scoreDiff["西"];
-  currentTableData.northScore = Number(currentTableData.northScore || 25000) + scoreDiff["北"];
+  // 得点の仮更新（固定の座席に対して正しい点数移動を反映）
+  currentTableData.eastScore = Number(currentTableData.eastScore || 25000) + scoreDiffBySeat["東家"];
+  currentTableData.southScore = Number(currentTableData.southScore || 25000) + scoreDiffBySeat["南家"];
+  currentTableData.westScore = Number(currentTableData.westScore || 25000) + scoreDiffBySeat["西家"];
+  currentTableData.northScore = Number(currentTableData.northScore || 25000) + scoreDiffBySeat["北家"];
 
   // 局と本場の進行計算
-  const isDealerTenpai = !!tenpaiStatus[currentDealerWind];
+  // ★現在の親は現在の風が常に「東」の人なので、tenpaiStatus["東"] でダイレクトに判定可能
+  const isDealerTenpai = !!tenpaiStatus["東"];
   let currentHonba = Number(currentTableData.honba || 0);
   let nextHonba = currentHonba + 1; // 流局時は親流れでも本場+1
   let nextBa = ba;
@@ -1739,13 +1753,13 @@ async function submitRyukyoku() {
   // 4. 暗転モーダルで「流局処理中...」を表示
   showResultModal(`<div style="font-size:20px; font-weight:bold; color:#333; padding:10px 0;">【流局処理中...】</div>`);
 
-  // 5. 裏側（GAS）へ通信（※計算前の originalTableDataJson を送信）
+  // 5. 裏側（GAS）へ通信
   try {
     const payload = {
       action: "ryukyoku",
       userId: myUserId,
       tenpaiData: JSON.stringify(tenpaiStatus),
-      currentData: originalTableDataJson // ★計算前のデータを渡すことでGAS側の二重加算を防止
+      currentData: originalTableDataJson
     };
 
     const res = await fetch(CONFIG_GAS_URL, {
@@ -1759,7 +1773,6 @@ async function submitRyukyoku() {
     if (result.success) {
       updateResultModalContent(`<div style="font-size:24px; font-weight:bold; color:#28a745; padding:15px 0;">流局完了</div>`);
       
-      // GASからの正確定着データで画面を上書き同期
       if (result.tableData) {
         setupMahjongTableUI(result.tableData, myUserId);
       }
